@@ -1,7 +1,9 @@
-# wsi_bach_thesis
+# Word Sense Induction Based on Linguistic Features
 
 
 Требования по ВКР: https://www.hse.ru/data/2020/03/16/1565283290/Правила%20КР-ВКР_ФиКЛ_2019.pdf
+
+Overleaf с текстом работы: https://www.overleaf.com/read/hbbpmqcctmyq
 
 Статья АК на диалог 2018: http://www.dialog-21.ru/media/4311/kutuzovab.pdf
 
