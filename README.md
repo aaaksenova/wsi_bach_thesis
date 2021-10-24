@@ -1,9 +1,7 @@
-# Word Sense Induction Based on Linguistic Features
+# Linguistically Motivated Word Sense Induction for Russian
 
 
-Требования по ВКР: https://www.hse.ru/data/2020/03/16/1565283290/Правила%20КР-ВКР_ФиКЛ_2019.pdf
-
-Overleaf с текстом работы: https://www.overleaf.com/read/hbbpmqcctmyq
+Project Notion: https://aksanna.notion.site/Linguistically-Motivated-Word-Sense-Induction-18341e83bbe349399c6df3689b613987
 
 Статья АК на диалог 2018: http://www.dialog-21.ru/media/4311/kutuzovab.pdf
 
