@@ -41,7 +41,7 @@ if __name__ == "__main__":
     for line in open(args.input, "r"):
         if not line.strip():
             continue
-        if line.startswith("# "):
+        if line.startswith("# text"):
             # add ancestor dependencies to the syntactic dictionary
             for idx, rel, lemma in rels:
                 if idx in dep_dict.keys():
@@ -53,6 +53,8 @@ if __name__ == "__main__":
                 syntax_properties[lemma][rel_set] += 1
             rels = []
             dep_dict = {}
+            continue
+        if line.startswith("# "):
             continue
         (
             identifier,
