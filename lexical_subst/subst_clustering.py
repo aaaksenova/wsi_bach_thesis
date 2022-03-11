@@ -17,12 +17,12 @@ _ma_cache = {}
 
 
 def ma(s):
-    '''
+    """
     Gets a string with one token, deletes spaces before and
     after token and returns grammatical information about it. If it was met
     before, we would get information from the special dictionary _ma_cache;
     if it was not, information would be gotten from pymorphy2.
-    '''
+    """
     s = s.strip()  # get rid of spaces before and after token,
                    # pytmorphy2 doesn't work with them correctly
     if s not in _ma_cache:
@@ -31,11 +31,11 @@ def ma(s):
 
 
 def get_nf_cnt(substs_probs):
-    '''
+    """
     Gets substitutes and returns normal
     forms of substitutes and count of substitutes that coresponds to
     each normal form.
-    '''
+    """
     nf_cnt = Counter(nf for l in substs_probs \
                      for p, s in l for nf in {h.normal_form for h in ma(s)})
     print('\n'.join('%s: %d' % p for p in nf_cnt.most_common(10)))
@@ -43,10 +43,10 @@ def get_nf_cnt(substs_probs):
 
 
 def get_normal_forms(s, nf_cnt=None):
-    '''
+    """
     Gets string with one token and returns set of most possible lemmas,
     all lemmas or one possible lemma.
-    '''
+    """
     hh = ma(s)
     if nf_cnt is not None and len(hh) > 1:  # select most common normal form
         h_weights = [nf_cnt[h.normal_form] for h in hh]
@@ -58,11 +58,11 @@ def get_normal_forms(s, nf_cnt=None):
 
 
 def preprocess_substs(r, lemmatize=True, nf_cnt=None, exclude_lemmas={}):
-    '''
+    """
     For preprocessing of substitutions. It gets Series of substitutions
     and probabilities, exclude lemmas from exclude_lemmas
     if it is not empty and lemmatize them if it is needed.
-    '''
+    """
     res = [s.strip() for p, s in r]
     if exclude_lemmas:
         res1 = [s for s in res
@@ -75,13 +75,13 @@ def preprocess_substs(r, lemmatize=True, nf_cnt=None, exclude_lemmas={}):
 
 def max_ari(df, X, ncs,
             affinity='cosine', linkage='average', vectorizer=None):
-    '''
+    """
     Gets data and substitutions (and some parameters
     like vectorizer and parameters for clusterization).
     Here for each unique word substitutions
     are vectorized and senses are clusterized.
     It returns metrics of clusterization.
-    '''
+    """
     sdfs = []
     for word in df.word.unique():
         # collecting examples for the word
@@ -110,9 +110,9 @@ def clusterize_search(word, vecs, gold_sense_ids=None,
                       ncs=list(range(1, 5, 1)) + list(range(5, 12, 2)),
                       affinity='cosine', linkage='average', print_topf=None,
                       generate_pictures_df=False, corpora_ids=None):
-    '''
+    """
     Gets word, vectors, gold_sense_ids and provides AgglomerativeClustering.
-    '''
+    """
 
     sdfs = []
     tmp_dfs = []
@@ -200,9 +200,9 @@ def metrics(sdfs):
 def run_pipeline():
 
     df = generate('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
-                  'DeepPavlov/rubert-base-cased')
+                  'cointegrated/rubert-tiny')
     print('Substitutions are generated')
-    nf_cnt = get_nf_cnt(df['before_subst_prob'])
+    nf_cnt = get_nf_cnt(df['merged_subst'])
     topk = 128
     substs_texts = df.apply(lambda r: preprocess_substs(r.before_subst_prob[:topk],
                                                         nf_cnt=nf_cnt,
