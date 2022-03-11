@@ -38,7 +38,7 @@ def get_nf_cnt(substs_probs):
     """
     nf_cnt = Counter(nf for l in substs_probs \
                      for p, s in l for nf in {h.normal_form for h in ma(s)})
-    print('\n'.join('%s: %d' % p for p in nf_cnt.most_common(10)))
+    # print('\n'.join('%s: %d' % p for p in nf_cnt.most_common(10)))
     return nf_cnt
 
 
@@ -197,10 +197,10 @@ def metrics(sdfs):
 
     return res_df, res, sdf
 
-def run_pipeline():
+def run_pipeline(path, model, top_k):
 
-    df = generate('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
-                  'cointegrated/rubert-tiny')
+    df = generate(path, model, top_k) #('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
+                  #'cointegrated/rubert-tiny')
     print('Substitutions are generated')
     nf_cnt = get_nf_cnt(df['merged_subst'])
     topk = 128
@@ -215,7 +215,7 @@ def run_pipeline():
     min_df = 0.05
     max_df = 0.95
     ngram_range = (1, 1)
-    ncs=(2,10)
+    ncs = (2, 10)
 
     vec = eval(vectorizer)(token_pattern=r"(?u)\b\w+\b",
                            min_df=min_df, max_df=max_df,
@@ -231,6 +231,4 @@ def run_pipeline():
     res_df, res, sdf = metrics(sdfs)
     res_df.to_csv('result/res_overall.csv', sep='\t')
     res.to_csv('result/res_detailed.csv', sep='\t')
-
-
-run_pipeline()
+    print('Clustering finished')

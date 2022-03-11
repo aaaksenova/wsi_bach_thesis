@@ -117,15 +117,15 @@ def intersect_sparse(substs_probs, substs_probs_y, nmasks=1, s=0, debug=False):
     return l
 
 
-def generate(path, modelname):
+def generate(path, modelname, top_k):
     tokenizer, model = load_models(modelname)
     df = pd.read_csv(path, sep='\t')
     df['masked_before_target'] = df[['positions', 'context']].apply(lambda x: mask_before_target(*x), axis=1)
     df['masked_after_target'] = df[['positions', 'context']].apply(lambda x: mask_after_target(*x), axis=1)
     df['before_subst_prob'] = df['masked_before_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model, x,
-                                                                                                 top_k=20))
+                                                                                                 top_k=top_k))
     df['after_subst_prob'] = df['masked_after_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model, x,
-                                                                                                   top_k=20))
+                                                                                                   top_k=top_k))
     df['merged_subst'] = intersect_sparse(df['before_subst_prob'], df['after_subst_prob'])
 
     return df
