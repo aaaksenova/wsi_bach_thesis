@@ -8,9 +8,11 @@ import random
 from pymorphy2 import MorphAnalyzer
 from collections import Counter
 import json
+import os
 
 
-morph_profiles = json.load(open('.../gram_profiling/output/jsons/corpus_morph.json'))
+morph_profiles = json.load(open('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/output/jsons/corpus_morph.json'))
+
 
 def set_all_seeds(seed):
   random.seed(seed)
@@ -263,8 +265,13 @@ def generate(path, modelname, top_k):
         for word in list(out_unique):
             fw.write(word + '\n')
 
+    # os.system("/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/full_profiling_pipeline.sh all_substitutions.txt /Users/a19336136/rnc_conllu")
+    # morph_profiles = json.load(open('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/output/jsons/corpus_morph.json'))
     df['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
        'Fem', 'Masc', 'Neut', 'Plur', 'Sing'] = df.progress_apply(lambda x: morph_vectors(x), axis=1)
 
+    df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
+    df.to_csv('substs_morph_profiling.csv', sep='\t')
 
     return df
+
