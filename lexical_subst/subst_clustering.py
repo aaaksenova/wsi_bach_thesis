@@ -1,76 +1,25 @@
 from generate_subst import generate
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-from collections import Counter
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 import numpy as np
-from pymorphy2 import MorphAnalyzer
 from sklearn.metrics import adjusted_rand_score as ARI
 from sklearn.cluster import AgglomerativeClustering
 from scipy.spatial.distance import cdist
 from sklearn.metrics import silhouette_score
+import random
+import torch
 
 
-_ma = MorphAnalyzer()
-_ma_cache = {}
+def set_all_seeds(seed):
+  random.seed(seed)
+  np.random.seed(seed)
+  torch.manual_seed(seed)
+  torch.cuda.manual_seed(seed)
+  torch.backends.cudnn.deterministic = True
 
-
-def ma(s):
-    """
-    Gets a string with one token, deletes spaces before and
-    after token and returns grammatical information about it. If it was met
-    before, we would get information from the special dictionary _ma_cache;
-    if it was not, information would be gotten from pymorphy2.
-    """
-    s = s.strip()  # get rid of spaces before and after token,
-                   # pytmorphy2 doesn't work with them correctly
-    if s not in _ma_cache:
-        _ma_cache[s] = _ma.parse(s)
-    return _ma_cache[s]
-
-
-def get_nf_cnt(substs_probs):
-    """
-    Gets substitutes and returns normal
-    forms of substitutes and count of substitutes that coresponds to
-    each normal form.
-    """
-    nf_cnt = Counter(nf for l in substs_probs \
-                     for p, s in l for nf in {h.normal_form for h in ma(s)})
-    # print('\n'.join('%s: %d' % p for p in nf_cnt.most_common(10)))
-    return nf_cnt
-
-
-def get_normal_forms(s, nf_cnt=None):
-    """
-    Gets string with one token and returns set of most possible lemmas,
-    all lemmas or one possible lemma.
-    """
-    hh = ma(s)
-    if nf_cnt is not None and len(hh) > 1:  # select most common normal form
-        h_weights = [nf_cnt[h.normal_form] for h in hh]
-        max_weight = max(h_weights)
-        return {h.normal_form for i, h in enumerate(hh) \
-                if h_weights[i] == max_weight}
-    else:
-        return {h.normal_form for h in hh}
-
-
-def preprocess_substs(r, lemmatize=True, nf_cnt=None, exclude_lemmas={}):
-    """
-    For preprocessing of substitutions. It gets Series of substitutions
-    and probabilities, exclude lemmas from exclude_lemmas
-    if it is not empty and lemmatize them if it is needed.
-    """
-    res = [s.strip() for p, s in r]
-    if exclude_lemmas:
-        res1 = [s for s in res
-                if not set(get_normal_forms(s)).intersection(exclude_lemmas)]
-        res = res1
-    if lemmatize:
-        res = [nf for s in res for nf in get_normal_forms(s, nf_cnt)]
-    return res
+set_all_seeds(42)
 
 
 def max_ari(df, X, ncs,
@@ -115,7 +64,6 @@ def clusterize_search(word, vecs, gold_sense_ids=None,
     """
 
     sdfs = []
-    tmp_dfs = []
 
     # adding 1 to zero vectors, because there will be problems (all-zero vectorized entries), if they remain zero
     # this introduces a new dimension with possible values
@@ -178,6 +126,9 @@ def clusterize_search(word, vecs, gold_sense_ids=None,
 
 
 def metrics(sdfs):
+    """
+    Gets dataset and calculates ari and silhouette score for all lexemes.
+    """
     # all metrics for each unique word
     sdf = pd.concat(sdfs, ignore_index=True)
     # groupby is docuented to preserve inside group order
@@ -197,17 +148,15 @@ def metrics(sdfs):
 
     return res_df, res, sdf
 
-def run_pipeline(path, model, top_k):
 
+def run_pipeline(path, model, top_k):
+    """
+    Combines generation, preprocessing and clustering in one pipeline.
+    """
     df = generate(path, model, top_k) #('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
                   #'cointegrated/rubert-tiny')
     print('Substitutions are generated')
-    nf_cnt = get_nf_cnt(df['merged_subst'])
-    topk = 128
-    substs_texts = df.apply(lambda r: preprocess_substs(r.before_subst_prob[:topk],
-                                                        nf_cnt=nf_cnt,
-                                                        lemmatize=True),
-                            axis=1).str.join(' ')
+    subst_texts = df['subst_texts']
     print('Substitutions are processed')
     vectorizer = 'TfidfVectorizer'
     lemmatize = True
@@ -222,7 +171,7 @@ def run_pipeline(path, model, top_k):
                            analyzer=analyzer, ngram_range=ngram_range)
 
     sdfs = max_ari(df,
-                   substs_texts,
+                   subst_texts,
                    ncs=range(*ncs),
                    affinity='cosine',
                    linkage='average',
