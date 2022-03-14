@@ -10,9 +10,6 @@ CONLL_DIR=${2}  # Directory with conllu.gz files
 OUTJSONS=output/jsons
 mkdir -p ${OUTJSONS}
 
-OUTSEPARATE=output/tsv
-mkdir -p ${OUTSEPARATE}
-
 echo "Extracting grammatical profiles..."
 python3 collect_ling_stats_child.py -i ${CONLL_DIR} -t ${TARGET} -o ${OUTJSONS}/corpus #&
 echo "Done extracting grammatical profiles"
