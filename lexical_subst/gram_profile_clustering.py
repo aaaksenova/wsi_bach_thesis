@@ -1,10 +1,7 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-from collections import Counter
 import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 import numpy as np
-from pymorphy2 import MorphAnalyzer
 from sklearn.metrics import adjusted_rand_score as ARI
 from sklearn.cluster import AgglomerativeClustering
 from scipy.spatial.distance import cdist
@@ -18,77 +15,17 @@ def set_all_seeds(seed):
   np.random.seed(seed)
   torch.manual_seed(seed)
   torch.cuda.manual_seed(seed)
-  torch.backends.cudnn.deterministic = True
+
 
 set_all_seeds(42)
-_ma = MorphAnalyzer()
-_ma_cache = {}
-
-
-def ma(s):
-    """
-    Gets a string with one token, deletes spaces before and
-    after token and returns grammatical information about it. If it was met
-    before, we would get information from the special dictionary _ma_cache;
-    if it was not, information would be gotten from pymorphy2.
-    """
-    s = s.strip()  # get rid of spaces before and after token,
-                   # pytmorphy2 doesn't work with them correctly
-    if s not in _ma_cache:
-        _ma_cache[s] = _ma.parse(s)
-    return _ma_cache[s]
-
-
-def get_nf_cnt(substs_probs):
-    """
-    Gets substitutes and returns normal
-    forms of substitutes and count of substitutes that coresponds to
-    each normal form.
-    """
-    nf_cnt = Counter(nf for l in substs_probs \
-                     for p, s in l for nf in {h.normal_form for h in ma(s)})
-
-    return nf_cnt
-
-
-def get_normal_forms(s, nf_cnt=None):
-    """
-    Gets string with one token and returns set of most possible lemmas,
-    all lemmas or one possible lemma.
-    """
-    hh = ma(s)
-    if nf_cnt is not None and len(hh) > 1:  # select most common normal form
-        h_weights = [nf_cnt[h.normal_form] for h in hh]
-        max_weight = max(h_weights)
-        return {h.normal_form for i, h in enumerate(hh) \
-                if h_weights[i] == max_weight}
-    else:
-        return {h.normal_form for h in hh}
-
-
-def preprocess_substs(r, lemmatize=True, nf_cnt=None, exclude_lemmas={}):
-    """
-    For preprocessing of substitutions. It gets Series of substitutions
-    and probabilities, exclude lemmas from exclude_lemmas
-    if it is not empty and lemmatize them if it is needed.
-    """
-    res = [s.strip() for p, s in r]
-    if exclude_lemmas:
-        res1 = [s for s in res
-                if not set(get_normal_forms(s)).intersection(exclude_lemmas)]
-        res = res1
-    if lemmatize:
-        res = [nf for s in res for nf in get_normal_forms(s, nf_cnt)]
-    return res
 
 
 def max_ari(df, ncs,
-            affinity='cosine', linkage='average', methods=None, X=None, vectorizer=None):
+            affinity='cosine', linkage='average', methods=None):
     """
-    Gets data and substitutions (and some parameters
-    like vectorizer and parameters for clusterization).
-    Here for each unique word substitutions
-    are vectorized and senses are clusterized.
+    Gets data and set of profiling methods.
+    Grammatical profiles are vectorized
+    and senses are clusterized.
     It returns metrics of clusterization.
     """
     sdfs = []
@@ -111,10 +48,6 @@ def max_ari(df, ncs,
     for word in df.word.unique():
         # collecting examples for the word
         mask = (df.word == word)
-        #         print(mask)
-        # vectors for substitutions
-        # vectors = X[mask] if vectorizer is None \
-        #     else vectorizer.fit_transform(X[mask]).toarray()
         vectors_ling = df_profiles[mask].to_numpy()
         # ids of senses of the examples
         gold_sense_ids = df.gold_sense_id[mask]
@@ -133,8 +66,7 @@ def max_ari(df, ncs,
 
 def clusterize_search(word, vecs, gold_sense_ids=None,
                       ncs=list(range(1, 5, 1)) + list(range(5, 12, 2)),
-                      affinity='cosine', linkage='average', print_topf=None,
-                      generate_pictures_df=False, corpora_ids=None):
+                      affinity='cosine', linkage='average'):
     """
     Gets word, vectors, gold_sense_ids and provides AgglomerativeClustering.
     """
@@ -227,19 +159,17 @@ def metrics(sdfs):
 
 def run_pipeline(methods):
     """
-    Combines generation, preprocessing and clustering in one pipeline.
+    Combines clustering in one pipeline.
     """
 
     df = pd.read_csv('substs_full_profiling.csv', sep='\t')
 
     ncs = (2, 10)
     sdfs = max_ari(df,
-                   # substs_texts,
                    ncs=range(*ncs),
                    affinity='cosine',
                    linkage='average',
                    methods=methods)
-                   # vectorizer=vec)
 
     res_df, res, sdf = metrics(sdfs)
     res_df.to_csv(f'result/res_overall_{methods}.csv', sep='\t')
