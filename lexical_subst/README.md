@@ -19,6 +19,7 @@ You can choose between 3 methods of grammatic profile generation:
 
 
 | **Method** | **ARI** |
+|--------|-------|
 | rubert-tiny vectors | 0.12 |
 | morph | 0.075 |
 | synt | 0.057 |
