@@ -1,4 +1,3 @@
-from generate_subst import generate
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from collections import Counter
@@ -83,8 +82,8 @@ def preprocess_substs(r, lemmatize=True, nf_cnt=None, exclude_lemmas={}):
     return res
 
 
-def max_ari(df, X, ncs,
-            affinity='cosine', linkage='average', vectorizer=None):
+def max_ari(df, ncs,
+            affinity='cosine', linkage='average', methods=None, X=None, vectorizer=None):
     """
     Gets data and substitutions (and some parameters
     like vectorizer and parameters for clusterization).
@@ -93,21 +92,36 @@ def max_ari(df, X, ncs,
     It returns metrics of clusterization.
     """
     sdfs = []
+    morph_start = 'Anim'
+    morph_end = 'Sing'
+    synt_start = "acl"
+    synt_end = "xcomp"
+    child_start = "acl_child"
+    child_end = "xcomp_child"
+    m = {'morph': [morph_start, morph_end],
+         'synt': [synt_start, synt_end],
+         'child': [child_start, child_end]
+         }
+    df_profiles = df.loc[:, m[methods[0]][0] : m[methods[0]][1]].astype('float')
+
+    if len(methods) > 1:
+        for method in methods[1:]:
+            df_profiles.join(df.loc[:, m[method][0] : m[method][1]].astype('float'))
     for word in df.word.unique():
         # collecting examples for the word
         mask = (df.word == word)
         #         print(mask)
         # vectors for substitutions
-        vectors = X[mask] if vectorizer is None \
-            else vectorizer.fit_transform(X[mask]).toarray()
-        # vectors_ling = np.hstack((vectors, df[mask][['case_enc', 'number_enc', 'dep_enc']].to_numpy()))
+        # vectors = X[mask] if vectorizer is None \
+        #     else vectorizer.fit_transform(X[mask]).toarray()
+        vectors_ling = df_profiles[mask].to_numpy()
         # ids of senses of the examples
         gold_sense_ids = df.gold_sense_id[mask]
         gold_sense_ids = None if gold_sense_ids.isnull().any() \
             else gold_sense_ids
 
         # clusterization (ari is kept in sdf along with other info)
-        best_clids, sdf, _ = clusterize_search(word, vectors, gold_sense_ids,
+        best_clids, sdf, _ = clusterize_search(word, vectors_ling, gold_sense_ids,
                                                ncs=ncs,
                                                affinity=affinity, linkage=linkage)
         df.loc[mask, 'predict_sense_id'] = best_clids  # result ids of clusters
@@ -190,6 +204,7 @@ def metrics(sdfs):
     """
     Gets dataset and calculates ari and silhouette score for all lexemes.
     """
+
     # all metrics for each unique word
     sdf = pd.concat(sdfs, ignore_index=True)
     # groupby is docuented to preserve inside group order
@@ -210,41 +225,30 @@ def metrics(sdfs):
     return res_df, res, sdf
 
 
-def run_pipeline(path, model, top_k):
+def run_pipeline(methods):  #path, model, top_k):
     """
     Combines generation, preprocessing and clustering in one pipeline.
     """
-    df = generate(path, model, top_k) #('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
+
+
+    df = pd.read_csv('substs_full_profiling.csv', sep='\t')
+                  # ('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
                   #'cointegrated/rubert-tiny')
-    print('Substitutions are generated')
-    nf_cnt = get_nf_cnt(df['merged_subst'])
-    topk = 128
-    substs_texts = df.apply(lambda r: preprocess_substs(r.before_subst_prob[:topk],
-                                                        nf_cnt=nf_cnt,
-                                                        lemmatize=True),
-                            axis=1).str.join(' ')
-    print('Substitutions are processed')
 
-    vectorizer = 'TfidfVectorizer'
-    lemmatize = True
-    analyzer = 'word'
-    min_df = 0.05
-    max_df = 0.95
-    ngram_range = (1, 1)
     ncs = (2, 10)
-
-    vec = eval(vectorizer)(token_pattern=r"(?u)\b\w+\b",
-                           min_df=min_df, max_df=max_df,
-                           analyzer=analyzer, ngram_range=ngram_range)
-
     sdfs = max_ari(df,
-                   substs_texts,
+                   # substs_texts,
                    ncs=range(*ncs),
                    affinity='cosine',
                    linkage='average',
-                   vectorizer=vec)
+                   methods=methods)
+                   # vectorizer=vec)
 
     res_df, res, sdf = metrics(sdfs)
-    res_df.to_csv('result/res_overall.csv', sep='\t')
-    res.to_csv('result/res_detailed.csv', sep='\t')
+    naming = '_'.join(methods)
+    res_df.to_csv(f'result/res_overall_{naming}.csv', sep='\t')
+    res.to_csv(f'result/res_detailed_{naming}.csv', sep='\t')
     print('Clustering finished')
+
+
+run_pipeline(['synt', 'child'])
