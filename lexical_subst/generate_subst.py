@@ -6,12 +6,13 @@ from sklearn.feature_extraction import DictVectorizer
 import numpy as np
 import random
 from pymorphy2 import MorphAnalyzer
-from collections import Counter
+from collections import Counter, OrderedDict
 import json
 import os
 
 
 morph_profiles = json.load(open('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/output/jsons/corpus_morph.json'))
+synt_profiles = json.load(open('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/output/jsons/corpus_synt.json'))
 
 
 def set_all_seeds(seed):
@@ -147,6 +148,7 @@ def intersect_sparse(substs_probs, substs_probs_y, nmasks=1, s=0, debug=False):
         l.append(good_substs[:10])
     return l
 
+
 _ma = MorphAnalyzer()
 _ma_cache = {}
 
@@ -241,6 +243,99 @@ def morph_vectors(x):
     return tuple(return_values)
 
 
+def synt_vectors(x):
+    synt_dict = OrderedDict({"acl": 0,
+                             "advcl": 0,
+                             "advmod": 0,
+                             "amod": 0,
+                             "appos": 0,
+                             "aux": 0,
+                             "case": 0,
+                             "cc": 0,
+                             "ccomp": 0,
+                             "clf": 0,
+                             "compound": 0,
+                             "conj": 0,
+                             "cop": 0,
+                             "csubj": 0,
+                             "dep": 0,
+                             "det": 0,
+                             "discourse": 0,
+                             "dislocated": 0,
+                             "expl": 0,
+                             "fixed": 0,
+                             "flat": 0,
+                             "goeswith": 0,
+                             "iobj": 0,
+                             "list": 0,
+                             "mark": 0,
+                             "nmod": 0,
+                             "nsubj": 0,
+                             "nummod": 0,
+                             "obj": 0,
+                             "obl": 0,
+                             "orphan": 0,
+                             "parataxis": 0,
+                             "punct": 0,
+                             "reparandum": 0,
+                             "root": 0,
+                             "vocative": 0,
+                             "xcomp": 0})
+    synt_child_dict = OrderedDict({"acl": 0,
+                                   "advcl": 0,
+                                   "advmod": 0,
+                                   "amod": 0,
+                                   "appos": 0,
+                                   "aux": 0,
+                                   "case": 0,
+                                   "cc": 0,
+                                   "ccomp": 0,
+                                   "clf": 0,
+                                   "compound": 0,
+                                   "conj": 0,
+                                   "cop": 0,
+                                   "csubj": 0,
+                                   "dep": 0,
+                                   "det": 0,
+                                   "discourse": 0,
+                                   "dislocated": 0,
+                                   "expl": 0,
+                                   "fixed": 0,
+                                   "flat": 0,
+                                   "goeswith": 0,
+                                   "iobj": 0,
+                                   "list": 0,
+                                   "mark": 0,
+                                   "nmod": 0,
+                                   "nsubj": 0,
+                                   "nummod": 0,
+                                   "obj": 0,
+                                   "obl": 0,
+                                   "orphan": 0,
+                                   "parataxis": 0,
+                                   "punct": 0,
+                                   "reparandum": 0,
+                                   "root": 0,
+                                   "vocative": 0,
+                                   "xcomp": 0})
+    substitutions = list(set(x['subst_texts'].split()))
+    for word in substitutions:
+        if _ma.parse(word)[0].tag.POS == 'NOUN':
+            if word in synt_profiles.keys():
+                for key, number in synt_profiles[word].items():
+                    if key == '_':
+                        continue
+                    tags = key.split('|')
+                    parent_tag = tags[0].split(':')[0]
+                    for tag in tags[1:]:
+                        child_tag = tag.split(':')[0]
+                        synt_dict[parent_tag] += int(number)
+                        synt_child_dict[child_tag] += int(number)
+    synt_scaled = [i / np.sum(list(synt_dict.values())) for i in list(synt_dict.values())]
+    synt_child_scaled = [i / np.sum(list(synt_child_dict.values())) for i in list(synt_child_dict.values())]
+    return synt_scaled + synt_child_scaled
+
+
 def generate(path, modelname, top_k):
 
     tokenizer, model = load_models(modelname)
@@ -267,11 +362,88 @@ def generate(path, modelname, top_k):
 
     # os.system("/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/full_profiling_pipeline.sh all_substitutions.txt /Users/a19336136/rnc_conllu")
     # morph_profiles = json.load(open('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/output/jsons/corpus_morph.json'))
-    df['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
-       'Fem', 'Masc', 'Neut', 'Plur', 'Sing'] = df.progress_apply(lambda x: morph_vectors(x), axis=1)
+    df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
+       'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x), axis=1, result_type='expand')
 
+    df[["acl",
+         "advcl",
+         "advmod",
+         "amod",
+         "appos",
+         "aux",
+         "case",
+         "cc",
+         "ccomp",
+         "clf",
+         "compound",
+         "conj",
+         "cop",
+         "csubj",
+         "dep",
+         "det",
+         "discourse",
+         "dislocated",
+         "expl",
+         "fixed",
+         "flat",
+         "goeswith",
+         "iobj",
+         "list",
+         "mark",
+         "nmod",
+         "nsubj",
+         "nummod",
+         "obj",
+         "obl",
+         "orphan",
+         "parataxis",
+         "punct",
+         "reparandum",
+         "root",
+         "vocative",
+         "xcomp",
+         "acl_child",
+         "advcl_child",
+         "advmod_child",
+         "amod_child",
+         "appos_child",
+         "aux_child",
+         "case_child",
+         "cc_child",
+         "ccomp_child",
+         "clf_child",
+         "compound_child",
+         "conj_child",
+         "cop_child",
+         "csubj_child",
+         "dep_child",
+         "det_child",
+         "discourse_child",
+         "dislocated_child",
+         "expl_child",
+         "fixed_child",
+         "flat_child",
+         "goeswith_child",
+         "iobj_child",
+         "list_child",
+         "mark_child",
+         "nmod_child",
+         "nsubj_child",
+         "nummod_child",
+         "obj_child",
+         "obl_child",
+         "orphan_child",
+         "parataxis_child",
+         "punct_child",
+         "reparandum_child",
+         "root_child",
+         "vocative_child",
+         "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x), axis=1, result_type='expand')
     df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
-    df.to_csv('substs_morph_profiling.csv', sep='\t')
+    df.to_csv('substs_full_profiling.csv', sep='\t')
 
     return df
 
+
+generate('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
+         'cointegrated/rubert-tiny', 50)
