@@ -17,3 +17,12 @@ You can choose between 3 methods of grammatic profile generation:
 - 'synt' - syntactic profiles of target word
 - 'child' - syntactic profiles of children dependencies
 
+
+| **Method** | **ARI** |
+| rubert-tiny vectors | 0.12 |
+| morph | 0.075 |
+| synt | 0.057 |
+| synt_child | 0.057 |
+| morph_synt | 0.075 |
+| morph_synt_child | 0.057 |
+
