@@ -331,8 +331,8 @@ def synt_vectors(x):
                         child_tag = tag.split(':')[0]
                         synt_dict[parent_tag] += int(number)
                         synt_child_dict[child_tag] += int(number)
-    synt_scaled = [i / np.sum(list(synt_dict.values())) for i in list(synt_dict.values())]
-    synt_child_scaled = [i / np.sum(list(synt_child_dict.values())) for i in list(synt_child_dict.values())]
+    synt_scaled = [i / max(np.sum(list(synt_dict.values())), 1) for i in list(synt_dict.values())]
+    synt_child_scaled = [i / max(np.sum(list(synt_child_dict.values())), 1) for i in list(synt_child_dict.values())]
     return synt_scaled + synt_child_scaled
 
 

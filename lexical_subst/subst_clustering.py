@@ -153,11 +153,14 @@ def run_pipeline(path, model, top_k):
     """
     Combines generation, preprocessing and clustering in one pipeline.
     """
-    df = generate(path, model, top_k) #('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
-                  #'cointegrated/rubert-tiny')
+
+    df = generate(path, model, top_k)
+    #('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
+    #'cointegrated/rubert-tiny')
     print('Substitutions are generated')
     subst_texts = df['subst_texts']
     print('Substitutions are processed')
+
     vectorizer = 'TfidfVectorizer'
     lemmatize = True
     analyzer = 'word'

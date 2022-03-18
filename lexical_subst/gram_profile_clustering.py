@@ -157,7 +157,6 @@ def clusterize_search(word, vecs, gold_sense_ids=None,
     # matrix with computed distances between each pair of the two collections of inputs
     distance_matrix = cdist(vecs, vecs, metric=affinity)
     distances.append(distance_matrix)
-
     for nc in ncs:
         # clusterization
         clr = AgglomerativeClustering(affinity='precomputed',
@@ -225,7 +224,7 @@ def metrics(sdfs):
     return res_df, res, sdf
 
 
-def run_pipeline(methods):  #path, model, top_k):
+def run_pipeline(methods):
     """
     Combines generation, preprocessing and clustering in one pipeline.
     """
@@ -251,4 +250,4 @@ def run_pipeline(methods):  #path, model, top_k):
     print('Clustering finished')
 
 
-run_pipeline(['synt', 'child'])
+run_pipeline(['morph', 'synt', 'child'])
