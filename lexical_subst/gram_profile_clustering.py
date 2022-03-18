@@ -47,7 +47,7 @@ def get_nf_cnt(substs_probs):
     """
     nf_cnt = Counter(nf for l in substs_probs \
                      for p, s in l for nf in {h.normal_form for h in ma(s)})
-    # print('\n'.join('%s: %d' % p for p in nf_cnt.most_common(10)))
+
     return nf_cnt
 
 
@@ -92,6 +92,7 @@ def max_ari(df, ncs,
     It returns metrics of clusterization.
     """
     sdfs = []
+    methods = methods.split('_')
     morph_start = 'Anim'
     morph_end = 'Sing'
     synt_start = "acl"
@@ -229,10 +230,7 @@ def run_pipeline(methods):
     Combines generation, preprocessing and clustering in one pipeline.
     """
 
-
     df = pd.read_csv('substs_full_profiling.csv', sep='\t')
-                  # ('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
-                  #'cointegrated/rubert-tiny')
 
     ncs = (2, 10)
     sdfs = max_ari(df,
@@ -244,10 +242,6 @@ def run_pipeline(methods):
                    # vectorizer=vec)
 
     res_df, res, sdf = metrics(sdfs)
-    naming = '_'.join(methods)
-    res_df.to_csv(f'result/res_overall_{naming}.csv', sep='\t')
-    res.to_csv(f'result/res_detailed_{naming}.csv', sep='\t')
+    res_df.to_csv(f'result/res_overall_{methods}.csv', sep='\t')
+    res.to_csv(f'result/res_detailed_{methods}.csv', sep='\t')
     print('Clustering finished')
-
-
-run_pipeline(['morph', 'synt', 'child'])
