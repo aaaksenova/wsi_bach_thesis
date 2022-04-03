@@ -8,11 +8,10 @@ import random
 from pymorphy2 import MorphAnalyzer
 from collections import Counter, OrderedDict
 import json
+from collect_ling_stats import parse_json
 import os
 
-
-morph_profiles = json.load(open('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/output/jsons/corpus_morph.json'))
-synt_profiles = json.load(open('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/output/jsons/corpus_synt.json'))
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def set_all_seeds(seed):
@@ -48,11 +47,11 @@ def load_models(modelname):
     Gets huggingface model name and uploads tokenizer and LM model
     """
     tokenizer = BertTokenizer.from_pretrained(modelname)
-    model = BertForMaskedLM.from_pretrained(modelname)
+    model = BertForMaskedLM.from_pretrained(modelname).to(device)
     return tokenizer, model
 
 
-def predict_masked_sent(tokenizer, model, text, top_k=5):
+def predict_masked_sent(tokenizer, model, text, top_k):
     """
     Gets text and returns top_k model predictions with probabilities
     """
@@ -63,7 +62,7 @@ def predict_masked_sent(tokenizer, model, text, top_k=5):
     masked_index = tokenized_text.index("[MASK]")
     indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
     tokens_tensor = torch.tensor([indexed_tokens])
-    # tokens_tensor = tokens_tensor.to('cuda')    # if you have gpu
+    tokens_tensor = tokens_tensor.to(device)    # if you have gpu
 
     # Predict all tokens
     with torch.no_grad():
@@ -80,9 +79,9 @@ def predict_masked_sent(tokenizer, model, text, top_k=5):
             token_weight = top_k_weights[i]
             out.append((token_weight.item(), predicted_token))
         if len(out) == top_k:
-             return out
+            return out
 
-    print('less then', top_k)
+    print(i, len(out), 'less than', top_k)
 
 
 # def extract_ling_feats(idx, text):
@@ -109,7 +108,7 @@ def intersect_sparse(substs_probs, substs_probs_y, nmasks=1, s=0, debug=False):
     f1 = substs_probs.apply(lambda l: {s: p for p, s in l})
     f2 = substs_probs_y.apply(lambda l: {s: p for p, s in l})
     vec.fit(list(f1) + list(f2))
-    f1, f2 = (vec.transform(list(f)) for f in (f1, f2)) # sparse matrix
+    f1, f2 = (vec.transform(list(f)) for f in (f1, f2))  # sparse matrix
 
     alpha1, alpha2 = ((1. - f.sum(axis=-1).reshape(-1, 1)) / 250000**nmasks \
                       for f in (f1, f2))
@@ -210,7 +209,11 @@ def preprocess_substs(r, lemmatize=True, nf_cnt=None, exclude_lemmas={}):
     return res
 
 
-def morph_vectors(x):
+def morph_vectors(x, morph_profiles):
+    """
+    Takes the line of processed dataframe and creates a vector of morphological features
+    based on previously generated json
+    """
     substitutions = list(set(x['subst_texts'].split()))
     morph_dict = {'Animacy': {'Anim': 0, 'Inan': 0},
                   'Case': {'Acc': 0, 'Dat': 0, 'Gen': 0, 'Ins': 0, 'Loc': 0,
@@ -243,7 +246,11 @@ def morph_vectors(x):
     return tuple(return_values)
 
 
-def synt_vectors(x):
+def synt_vectors(x, synt_profiles):
+    """
+    Takes the line of processed dataframe and creates a vector of syntactic features
+    based on previously generated json
+    """
     synt_dict = OrderedDict({"acl": 0,
                              "advcl": 0,
                              "advmod": 0,
@@ -337,6 +344,10 @@ def synt_vectors(x):
 
 
 def generate(path, modelname, top_k):
+    """
+    Takes path to dataset in RUSSE-18 format,
+    huggingface model name and the number of substitutes to use
+    """
 
     tokenizer, model = load_models(modelname)
     df = pd.read_csv(path, sep='\t')
@@ -356,15 +367,21 @@ def generate(path, modelname, top_k):
     out_unique = set()
     for item in df['subst_texts'].tolist():
         out_unique.update(item.split())
-    with open('all_substitutions.txt', 'w') as fw:
+    with open('all_substitutions_wiki.txt', 'w') as fw:
         for word in list(out_unique):
             fw.write(word + '\n')
+    if not os.path.exists(f"./profiles/{model.split('/')[-1]}_morph.json"):
+        print("Generating profiles")
+        parse_json('all_substitutions.txt', modelname)
+        print("Generation finished")
 
-    # os.system("/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/full_profiling_pipeline.sh all_substitutions.txt /Users/a19336136/rnc_conllu")
-    # morph_profiles = json.load(open('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/gram_profiling/output/jsons/corpus_morph.json'))
+    morph_profiles = json.load(open(
+        f"./profiles/{model.split('/')[-1]}_morph.json"))
+    synt_profiles = json.load(open(
+        f"./profiles/{model.split('/')[-1]}_synt.json"))
+
     df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
-       'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x), axis=1, result_type='expand')
-
+       'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1, result_type='expand')
     df[["acl",
          "advcl",
          "advmod",
@@ -438,12 +455,9 @@ def generate(path, modelname, top_k):
          "reparandum_child",
          "root_child",
          "vocative_child",
-         "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x), axis=1, result_type='expand')
+         "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
+
     df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
-    df.to_csv('substs_full_profiling.csv', sep='\t')
+    df.to_csv('substs_profiling.csv', sep='\t')
 
     return df
-
-
-generate('/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/russe-wsi-kit/data/main/bts-rnc/train.csv',
-         'cointegrated/rubert-tiny', 50)
