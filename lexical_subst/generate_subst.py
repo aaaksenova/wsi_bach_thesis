@@ -367,18 +367,18 @@ def generate(path, modelname, top_k):
     out_unique = set()
     for item in df['subst_texts'].tolist():
         out_unique.update(item.split())
-    with open('all_substitutions_wiki.txt', 'w') as fw:
+    with open(f"all_substitutions_{modelname.split('/')[-1]}.txt", 'w') as fw:
         for word in list(out_unique):
             fw.write(word + '\n')
-    if not os.path.exists(f"./profiles/{model.split('/')[-1]}_morph.json"):
+    if not os.path.exists(f"./profiles/{modelname.split('/')[-1]}_morph.json"):
         print("Generating profiles")
-        parse_json('all_substitutions.txt', modelname)
+        parse_json(f"all_substitutions_{modelname.split('/')[-1]}.txt", modelname)
         print("Generation finished")
 
     morph_profiles = json.load(open(
-        f"./profiles/{model.split('/')[-1]}_morph.json"))
+        f"./profiles/{modelname.split('/')[-1]}_morph.json"))
     synt_profiles = json.load(open(
-        f"./profiles/{model.split('/')[-1]}_synt.json"))
+        f"./profiles/{modelname.split('/')[-1]}_synt.json"))
 
     df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
        'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1, result_type='expand')
