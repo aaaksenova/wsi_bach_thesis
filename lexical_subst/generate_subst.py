@@ -370,6 +370,7 @@ def generate(path, modelname, top_k):
     with open(f"all_substitutions_{modelname.split('/')[-1]}.txt", 'w') as fw:
         for word in list(out_unique):
             fw.write(word + '\n')
+    # checking if file exists
     if not os.path.exists(f"./profiles/{modelname.split('/')[-1]}_morph.json"):
         print("Generating profiles")
         parse_json(f"all_substitutions_{modelname.split('/')[-1]}.txt", modelname)
@@ -458,6 +459,6 @@ def generate(path, modelname, top_k):
          "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
 
     df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
-    df.to_csv('substs_profiling.csv', sep='\t')
+    df.to_csv(f"substs_profiling_{modelname.split('/')[-1]}.csv", sep='\t')
 
     return df

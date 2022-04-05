@@ -12,7 +12,7 @@ def parse_json(target, model):
     """
     Takes file with one word per line and collects
     linguistic profiles for each of the words
-    writes down the result into file named by model name
+    writes down the result_bts_rnc into file named by model name
     and the type of profile. Model is a name of the model that
     was used for substitutes generation
     """

@@ -10,6 +10,7 @@ from sklearn.metrics import silhouette_score
 import random
 import torch
 from generate_subst import generate
+import os
 
 
 def set_all_seeds(seed):
@@ -32,7 +33,10 @@ def max_ari(df, X, ncs,
     """
     sdfs = []
     methods = methods.split('_')
-    flag_subst = methods.pop(methods.index('subst'))
+    if 'subst' in methods:
+        flag_subst = methods.pop(methods.index('subst'))
+    else:
+        flag_subst = None
     morph_start = 'Anim'
     morph_end = 'Sing'
     synt_start = "acl"
@@ -43,8 +47,11 @@ def max_ari(df, X, ncs,
          'synt': [synt_start, synt_end],
          'child': [child_start, child_end]
          }
-    if not flag_subst:
-        df_profiles = df.loc[:, m[methods[0]][0] : m[methods[0]][1]].astype('float')
+    # if not flag_subst:
+    try:
+        df_profiles = df.loc[:, m[methods[0]][0]: m[methods[0]][1]].astype('float')
+    except Exception as e:
+        print(e)
 
         if len(methods) > 1:
             for method in methods[1:]:
@@ -75,7 +82,7 @@ def max_ari(df, X, ncs,
         best_clids, sdf, _ = clusterize_search(word, vector_for_clustering, gold_sense_ids,
                                                ncs=ncs,
                                                affinity=affinity, linkage=linkage)
-        df.loc[mask, 'predict_sense_id'] = best_clids  # result ids of clusters
+        df.loc[mask, 'predict_sense_id'] = best_clids  # result_bts_rnc ids of clusters
         sdfs.append(sdf)
 
     return sdfs
@@ -174,17 +181,21 @@ def metrics(sdfs):
     return res_df, res, sdf
 
 
-def run_pipeline(path, model, top_k, methods):
+def run_pipeline(path, modelname, top_k, methods):
     """
     Path: path to dataset
     Model: higgingface model
     Top-k: number of substitutes to generate
-    Methods: list of methods separeted by morph_synt_child_subst
+    Methods: list of methods separeted by '_'
+    e.g. morph_synt_child_subst
     """
 
-    # df = pd.read_csv('substs_full_profiling_wiki.csv', sep='\t')
-    df = generate(path, model, top_k)
-    print('Data processing is finished')
+    # if file exists just read it
+    if os.path.exists(f"substs_profiling_{modelname.split('/')[-1]}.csv"):
+        df = pd.read_csv(f"substs_profiling_{modelname.split('/')[-1]}.csv", sep="\t")
+    else:
+        df = generate(path, modelname, top_k)
+    print('Data processing finished')
     subst_texts = df['subst_texts']
 
     vectorizer = 'TfidfVectorizer'
@@ -208,6 +219,6 @@ def run_pipeline(path, model, top_k, methods):
                    vectorizer=vec)
 
     res_df, res, sdf = metrics(sdfs)
-    res_df.to_csv(f'result/res_wiki_overall_{model.split("/")[-1]}_{methods}.csv', sep='\t')
-    res.to_csv(f'result/res_wiki_detailed_{model.split("/")[-1]}_{methods}.csv', sep='\t')
+    res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.csv', sep='\t')
+    res.to_csv(f'result/res_detailed_{modelname.split("/")[-1]}_{methods}.csv', sep='\t')
     print('Clustering finished')
