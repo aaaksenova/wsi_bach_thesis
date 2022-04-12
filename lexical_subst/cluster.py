@@ -38,9 +38,9 @@ def max_ari(df, X, ncs,
     else:
         flag_subst = None
     if 'ling' in methods:
-        ling_subst = methods.pop(methods.index('ling'))
+        flag_ling = methods.pop(methods.index('ling'))
     else:
-        ling_subst = None
+        flag_ling = None
     morph_start = 'Anim'
     morph_end = 'Sing'
     synt_start = "acl"
@@ -54,6 +54,7 @@ def max_ari(df, X, ncs,
     # if not flag_subst:
     try:
         df_profiles = df.loc[:, m[methods[0]][0]: m[methods[0]][1]].astype('float')
+        df_ling_target = df.loc[:, 'target_case_ablt': 'target_dep_root'].astype('int64')
     except Exception as e:
         print(e)
 
@@ -62,7 +63,9 @@ def max_ari(df, X, ncs,
                 df_profiles.join(df.loc[:, m[method][0] : m[method][1]].astype('float'))
     for word in df.word.unique():
         vectors_ling = []
+        vectors_ling_target = []
         vectors = []
+        vector_for_clustering = []
         # collecting examples for the word
         mask = (df.word == word)
         if len(methods) >= 1:
@@ -70,12 +73,17 @@ def max_ari(df, X, ncs,
         if flag_subst:
             vectors = X[mask] if vectorizer is None \
                 else vectorizer.fit_transform(X[mask]).toarray()
-        if len(vectors_ling) > 1 and len(vectors) > 1:
-            vector_for_clustering = np.hstack((vectors, vectors_ling))
-        elif len(vectors_ling) > 1:
-            vector_for_clustering = vectors_ling
-        elif len(vectors) > 1:
-            vector_for_clustering = vectors
+        if flag_ling:
+            vectors_ling_target = df_ling_target[mask].to_numpy()
+        for i in [vectors, vectors_ling, vectors_ling_target]:
+            if len(i) > 1:
+                vector_for_clustering = np.hstack((vector_for_clustering, i))
+        # if len(vectors_ling) > 1 and len(vectors) > 1:
+        #     vector_for_clustering = np.hstack((vectors, vectors_ling))
+        # elif len(vectors_ling) > 1:
+        #     vector_for_clustering = vectors_ling
+        # elif len(vectors) > 1:
+        #     vector_for_clustering = vectors
 
         # ids of senses of the examples
         gold_sense_ids = df.gold_sense_id[mask]
