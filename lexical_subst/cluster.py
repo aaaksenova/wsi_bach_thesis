@@ -54,18 +54,22 @@ def max_ari(df, X, ncs,
     # if not flag_subst:
     try:
         df_profiles = df.loc[:, m[methods[0]][0]: m[methods[0]][1]].astype('float')
-        df_ling_target = df.loc[:, 'target_case_ablt': 'target_dep_root'].astype('int64')
+    except Exception as e:
+        print(e)
+    try:
+        cols = [i for i in df.columns.tolist() if 'target_' in i]
+        df_ling_target = df.loc[:, cols[0]: cols[-1]].astype('int64')
     except Exception as e:
         print(e)
 
         if len(methods) > 1:
             for method in methods[1:]:
-                df_profiles.join(df.loc[:, m[method][0] : m[method][1]].astype('float'))
+                df_profiles.join(df.loc[:, m[method][0]: m[method][1]].astype('float'))
     for word in df.word.unique():
         vectors_ling = []
         vectors_ling_target = []
         vectors = []
-        vector_for_clustering = []
+        vector_for_clustering = [[]*df.shape[0]]
         # collecting examples for the word
         mask = (df.word == word)
         if len(methods) >= 1:
@@ -76,14 +80,11 @@ def max_ari(df, X, ncs,
         if flag_ling:
             vectors_ling_target = df_ling_target[mask].to_numpy()
         for i in [vectors, vectors_ling, vectors_ling_target]:
-            if len(i) > 1:
+            if len(vector_for_clustering) > 1 and len(i) > 1:
                 vector_for_clustering = np.hstack((vector_for_clustering, i))
-        # if len(vectors_ling) > 1 and len(vectors) > 1:
-        #     vector_for_clustering = np.hstack((vectors, vectors_ling))
-        # elif len(vectors_ling) > 1:
-        #     vector_for_clustering = vectors_ling
-        # elif len(vectors) > 1:
-        #     vector_for_clustering = vectors
+            elif not (len(vector_for_clustering) > 1) and len(i) > 1:
+                vector_for_clustering = i
+
 
         # ids of senses of the examples
         gold_sense_ids = df.gold_sense_id[mask]

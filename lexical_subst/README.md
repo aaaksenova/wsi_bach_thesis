@@ -9,9 +9,10 @@ This script works with datasets in RUSSE-18 format and applies BERT-based models
 You can choose between 4 types of features to use for clustering:
 
 - 'subst' - lexical substitutes (Arefyev et. al. 2021)
-- 'morph' - morphological profiles of substitutes
-- 'synt' - syntactic profiles of substitutes
-- 'child' - syntactic profiles of children dependencies of substitutes
+- 'morph' - morphological profiles of substitutes in RNC
+- 'synt' - syntactic profiles of substitutes in RNC
+- 'child' - syntactic profiles of children dependencies of substitutes in RNC
+- 'ling' - morphological and syntactic features of target word in each sentence
 
 The features can be combined. In this case they should be passed separated by '_'
 

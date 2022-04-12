@@ -89,8 +89,8 @@ def predict_masked_sent(tokenizer, model, text, top_k):
 
 
 def extract_ling_feats(idxs, text, nlp):
-    start_id = int(idxs.split('-')[0].strip())
-    end_id = int(idxs.split('-')[1].strip())
+    start_id = int(idxs.split(',')[0].split('-')[0].strip())
+    end_id = int(idxs.split(',')[0].split('-')[1].strip())
     processed = nlp(text)
     case = _ma.parse(text[start_id:end_id + 1])[0].tag.case
     number = _ma.parse(text[start_id:end_id + 1])[0].tag.number
@@ -349,7 +349,7 @@ def generate(path, modelname, top_k):
     huggingface model name and the number of substitutes to use
     """
 
-    # tokenizer, model = load_models(modelname)
+    tokenizer, model = load_models(modelname)
     df = pd.read_csv(path, sep='\t')
     df['masked_before_target'] = df[['positions', 'context']].apply(lambda x: mask_before_target(*x), axis=1)
     df['masked_after_target'] = df[['positions', 'context']].apply(lambda x: mask_after_target(*x), axis=1)
@@ -358,118 +358,118 @@ def generate(path, modelname, top_k):
                                                                                            x['context'], nlp),
                                                                         axis=1, result_type='expand')
     df = pd.get_dummies(df, columns=['target_case', 'target_num', 'target_dep'])
-    # df['before_subst_prob'] = df['masked_before_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
-    #                                                                                                   x,
-    #                                                                                                   top_k=top_k))
-    # df['after_subst_prob'] = df['masked_after_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
-    #                                                                                                 x,
-    #                                                                                                 top_k=top_k))
-    # df['merged_subst'] = intersect_sparse(df['before_subst_prob'], df['after_subst_prob'])
-    # nf_cnt = get_nf_cnt(df['merged_subst'])
-    # topk = 128
-    # df['subst_texts'] = df.apply(lambda r: preprocess_substs(r.before_subst_prob[:topk],
-    #                                                          nf_cnt=nf_cnt,
-    #                                                          lemmatize=True),
-    #                              axis=1).str.join(' ')
-    # out_unique = set()
-    # for item in df['subst_texts'].tolist():
-    #     out_unique.update(item.split())
-    # with open(f"all_substitutions_{modelname.split('/')[-1]}.txt", 'w') as fw:
-    #     for word in list(out_unique):
-    #         fw.write(word + '\n')
-    # # checking if file exists
-    # if not os.path.exists(f"./profiles/{modelname.split('/')[-1]}_morph.json"):
-    #     print("Generating profiles")
-    #     parse_json(f"all_substitutions_{modelname.split('/')[-1]}.txt", modelname)
-    #     print("Generation finished")
-    #
-    # morph_profiles = json.load(open(
-    #     f"./profiles/{modelname.split('/')[-1]}_morph.json"))
-    # synt_profiles = json.load(open(
-    #     f"./profiles/{modelname.split('/')[-1]}_synt.json"))
-    #
-    # df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
-    #     'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1,
-    #                                                                 result_type='expand')
-    # df[["acl",
-    #     "advcl",
-    #     "advmod",
-    #     "amod",
-    #     "appos",
-    #     "aux",
-    #     "case",
-    #     "cc",
-    #     "ccomp",
-    #     "clf",
-    #     "compound",
-    #     "conj",
-    #     "cop",
-    #     "csubj",
-    #     "dep",
-    #     "det",
-    #     "discourse",
-    #     "dislocated",
-    #     "expl",
-    #     "fixed",
-    #     "flat",
-    #     "goeswith",
-    #     "iobj",
-    #     "list",
-    #     "mark",
-    #     "nmod",
-    #     "nsubj",
-    #     "nummod",
-    #     "obj",
-    #     "obl",
-    #     "orphan",
-    #     "parataxis",
-    #     "punct",
-    #     "reparandum",
-    #     "root",
-    #     "vocative",
-    #     "xcomp",
-    #     "acl_child",
-    #     "advcl_child",
-    #     "advmod_child",
-    #     "amod_child",
-    #     "appos_child",
-    #     "aux_child",
-    #     "case_child",
-    #     "cc_child",
-    #     "ccomp_child",
-    #     "clf_child",
-    #     "compound_child",
-    #     "conj_child",
-    #     "cop_child",
-    #     "csubj_child",
-    #     "dep_child",
-    #     "det_child",
-    #     "discourse_child",
-    #     "dislocated_child",
-    #     "expl_child",
-    #     "fixed_child",
-    #     "flat_child",
-    #     "goeswith_child",
-    #     "iobj_child",
-    #     "list_child",
-    #     "mark_child",
-    #     "nmod_child",
-    #     "nsubj_child",
-    #     "nummod_child",
-    #     "obj_child",
-    #     "obl_child",
-    #     "orphan_child",
-    #     "parataxis_child",
-    #     "punct_child",
-    #     "reparandum_child",
-    #     "root_child",
-    #     "vocative_child",
-    #     "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
-    #
-    # df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
+    df['before_subst_prob'] = df['masked_before_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
+                                                                                                      x,
+                                                                                                      top_k=top_k))
+    df['after_subst_prob'] = df['masked_after_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
+                                                                                                    x,
+                                                                                                    top_k=top_k))
+    df['merged_subst'] = intersect_sparse(df['before_subst_prob'], df['after_subst_prob'])
+    nf_cnt = get_nf_cnt(df['merged_subst'])
+    topk = 128
+    df['subst_texts'] = df.apply(lambda r: preprocess_substs(r.before_subst_prob[:topk],
+                                                             nf_cnt=nf_cnt,
+                                                             lemmatize=True),
+                                 axis=1).str.join(' ')
+    out_unique = set()
+    for item in df['subst_texts'].tolist():
+        out_unique.update(item.split())
+    with open(f"all_substitutions_{modelname.split('/')[-1]}.txt", 'w') as fw:
+        for word in list(out_unique):
+            fw.write(word + '\n')
+    # checking if file exists
+    if not os.path.exists(f"./profiles/{modelname.split('/')[-1]}_morph.json"):
+        print("Generating profiles")
+        parse_json(f"all_substitutions_{modelname.split('/')[-1]}.txt", modelname)
+        print("Generation finished")
+
+    morph_profiles = json.load(open(
+        f"./profiles/{modelname.split('/')[-1]}_morph.json"))
+    synt_profiles = json.load(open(
+        f"./profiles/{modelname.split('/')[-1]}_synt.json"))
+
+    df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
+        'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1,
+                                                                    result_type='expand')
+    df[["acl",
+        "advcl",
+        "advmod",
+        "amod",
+        "appos",
+        "aux",
+        "case",
+        "cc",
+        "ccomp",
+        "clf",
+        "compound",
+        "conj",
+        "cop",
+        "csubj",
+        "dep",
+        "det",
+        "discourse",
+        "dislocated",
+        "expl",
+        "fixed",
+        "flat",
+        "goeswith",
+        "iobj",
+        "list",
+        "mark",
+        "nmod",
+        "nsubj",
+        "nummod",
+        "obj",
+        "obl",
+        "orphan",
+        "parataxis",
+        "punct",
+        "reparandum",
+        "root",
+        "vocative",
+        "xcomp",
+        "acl_child",
+        "advcl_child",
+        "advmod_child",
+        "amod_child",
+        "appos_child",
+        "aux_child",
+        "case_child",
+        "cc_child",
+        "ccomp_child",
+        "clf_child",
+        "compound_child",
+        "conj_child",
+        "cop_child",
+        "csubj_child",
+        "dep_child",
+        "det_child",
+        "discourse_child",
+        "dislocated_child",
+        "expl_child",
+        "fixed_child",
+        "flat_child",
+        "goeswith_child",
+        "iobj_child",
+        "list_child",
+        "mark_child",
+        "nmod_child",
+        "nsubj_child",
+        "nummod_child",
+        "obj_child",
+        "obl_child",
+        "orphan_child",
+        "parataxis_child",
+        "punct_child",
+        "reparandum_child",
+        "root_child",
+        "vocative_child",
+        "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
+
+    df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
     df.to_csv(f"substs_profiling_{modelname.split('/')[-1]}.csv", sep='\t', index=False)
 
     return df
 
 
-generate('../russe-wsi-kit/data/main/bts-rnc/train.csv', 'rubert', '50')
+#generate('../russe-wsi-kit/data/main/bts-rnc/train.csv', 'rubert', '50')
