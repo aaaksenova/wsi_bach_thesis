@@ -16,12 +16,3 @@ You can choose between 4 types of features to use for clustering:
 
 The features can be combined. In this case they should be passed separated by '_'
 
-| **Method** | **ARI** |
-|--------|-------|
-| rubert-tiny vectors | 0.12 |
-| morph | 0.075 |
-| synt | 0.057 |
-| synt_child | 0.057 |
-| morph_synt | 0.075 |
-| morph_synt_child | 0.057 |
-
