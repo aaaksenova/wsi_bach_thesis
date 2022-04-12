@@ -37,6 +37,10 @@ def max_ari(df, X, ncs,
         flag_subst = methods.pop(methods.index('subst'))
     else:
         flag_subst = None
+    if 'ling' in methods:
+        ling_subst = methods.pop(methods.index('ling'))
+    else:
+        ling_subst = None
     morph_start = 'Anim'
     morph_end = 'Sing'
     synt_start = "acl"
