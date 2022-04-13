@@ -204,8 +204,8 @@ def run_pipeline(path, modelname, top_k, methods):
     """
 
     # if file exists just read it
-    if os.path.exists(f"substs_profiling_{modelname.split('/')[-1]}.csv"):
-        df = pd.read_csv(f"substs_profiling_{modelname.split('/')[-1]}.csv", sep="\t")
+    if os.path.exists(f"substs_profiling_{modelname.split('/')[-1]}.tsv"):
+        df = pd.read_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep="\t")
     else:
         df = generate(path, modelname, top_k)
     print('Data processing finished')
@@ -232,6 +232,6 @@ def run_pipeline(path, modelname, top_k, methods):
                    vectorizer=vec)
 
     res_df, res, sdf = metrics(sdfs)
-    res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.csv', sep='\t')
-    res.to_csv(f'result/res_detailed_{modelname.split("/")[-1]}_{methods}.csv', sep='\t')
+    res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t')
+    res.to_csv(f'result/res_detailed_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t')
     print('Clustering finished')
