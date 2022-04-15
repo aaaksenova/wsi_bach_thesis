@@ -1,6 +1,6 @@
 import pandas as pd
 import torch
-from transformers import BertTokenizer, BertForMaskedLM, AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import BertTokenizer, BertForMaskedLM, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForMaskedLM
 from tqdm.auto import tqdm
 from sklearn.feature_extraction import DictVectorizer
 import stanza
@@ -34,7 +34,7 @@ def mask_before_target(idxs, line):
     """
     Gets sentence and creates masked coordination pattern before target word
     """
-    start_id = int(idxs.split(',')[0].split('-')[0].strip())
+    start_id = int(str(idxs).split(',')[0].split('-')[0].strip())
     return line[:start_id] + '[MASK] а также ' + line[start_id:]
 
 
@@ -42,7 +42,7 @@ def mask_after_target(idxs, line):
     """
     Gets sentence and creates masked coordination pattern after target word
     """
-    end_id = int(idxs.split(',')[0].split('-')[1].strip())
+    end_id = int(str(idxs).split(',')[0].split('-')[1].strip())
     return line[:end_id + 1] + ' а также [MASK]' + line[end_id + 1:]
 
 
@@ -50,8 +50,8 @@ def load_models(modelname):
     """
     Gets huggingface model name and uploads tokenizer and LM model
     """
-    tokenizer = BertTokenizer.from_pretrained(modelname)
-    model = BertForMaskedLM.from_pretrained(modelname).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(modelname)
+    model = AutoModelForMaskedLM.from_pretrained(modelname).to(device)
     return tokenizer, model
 
 
@@ -62,7 +62,7 @@ def predict_masked_sent(tokenizer, model, text, top_k):
     # Tokenize input
 
     text = "[CLS] %s [SEP]" % text
-    tokenized_text = tokenizer.tokenize(text)
+    tokenized_text = tokenizer.tokenize(text, truncation=True)
     masked_index = tokenized_text.index("[MASK]")
     indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
     tokens_tensor = torch.tensor([indexed_tokens])
@@ -378,15 +378,15 @@ def generate(path, modelname, top_k):
         for word in list(out_unique):
             fw.write(word + '\n')
     # checking if file exists
-    if not os.path.exists(f"./profiles/{modelname.split('/')[-1]}_morph.json"):
+    if not os.path.exists(f"profiles/{modelname.split('/')[-1]}_morph.json"):
         print("Generating profiles")
         parse_json(f"all_substitutions_{modelname.split('/')[-1]}.txt", modelname)
         print("Generation finished")
 
     morph_profiles = json.load(open(
-        f"./profiles/{modelname.split('/')[-1]}_morph.json"))
+        f"profiles/{modelname.split('/')[-1]}_morph.json"))
     synt_profiles = json.load(open(
-        f"./profiles/{modelname.split('/')[-1]}_synt.json"))
+        f"profiles/{modelname.split('/')[-1]}_synt.json"))
 
     df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
         'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1,
