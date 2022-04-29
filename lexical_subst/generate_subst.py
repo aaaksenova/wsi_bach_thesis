@@ -1,6 +1,6 @@
 import pandas as pd
 import torch
-from transformers import BertTokenizer, BertForMaskedLM, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForMaskedLM
+from transformers import BertTokenizer, BertForMaskedLM, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForMaskedLM, AutoModel
 from tqdm.auto import tqdm
 from sklearn.feature_extraction import DictVectorizer
 import stanza
@@ -74,7 +74,7 @@ def predict_masked_sent(tokenizer, model, text, top_k):
         predictions = outputs[0]
 
     probs = torch.nn.functional.softmax(predictions[0, masked_index], dim=-1)
-    top_k_weights, top_k_indices = torch.topk(probs, 1000, sorted=True)
+    top_k_weights, top_k_indices = torch.topk(probs, 1500, sorted=True)
 
     out = []
     for i, pred_idx in enumerate(top_k_indices):
@@ -100,6 +100,38 @@ def extract_ling_feats(idxs, text, nlp):
             dep = token.words[0].deprel
             break
     return case, number, dep
+
+
+def bert_prep_vectorization(dframe, modelname):
+
+    tokenizer = AutoTokenizer.from_pretrained(modelname)
+    model = AutoModel.from_pretrained(modelname).to(device)
+
+    start_prep_idx = -1
+    end_prep_idx = -1
+    processed = nlp(dframe.context)
+    start_id = int(dframe.positions.split(',')[0].split('-')[0].strip())
+    for token in processed.iter_tokens():
+        if start_id == token.start_char:
+            target_idx = token.words[0].id
+            for i in range(len(processed.sentences[0].tokens)):
+                if processed.sentences[0].dependencies[i][0].id == target_idx and processed.sentences[0].dependencies[i][1] == 'case':
+                    start_prep_idx = processed.sentences[0].dependencies[i][2].start_char
+                    end_prep_idx = processed.sentences[0].dependencies[i][2].end_char
+    if start_prep_idx == -1:
+        return 'no_prep', np.zeros((1, 312))[0]
+    else:
+        word = dframe.context[start_prep_idx: end_prep_idx]  # Extract word
+        bert_input = tokenizer.encode(dframe.context, return_tensors="pt").to(device)  # Encode sentence
+        tokenized_sent = tokenizer.tokenize(dframe.context)  # Tokenize sentence
+        sent_logits = model(bert_input, return_dict=True)["last_hidden_state"]
+        if word in tokenized_sent:
+            # Get first instance of word:
+            word_index = list(np.where(np.array(tokenized_sent) == word)[0])[0]
+            word_embedding = sent_logits[:, word_index, :].cpu().detach().numpy()
+        else:
+            return word.lower(), np.zeros((1, 312))[0]
+        return word.lower(), word_embedding[0]
 
 
 def intersect_sparse(substs_probs, substs_probs_y, nmasks=1, s=0, debug=False):
@@ -465,7 +497,7 @@ def generate(path, modelname, top_k):
         "root_child",
         "vocative_child",
         "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
-
+    df[['prep', 'prep_vec']] = df.apply(lambda x: bert_prep_vectorization(x, modelname), result_type='expand', axis=1)
     df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
     df.to_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep='\t', index=False)
 

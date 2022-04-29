@@ -41,6 +41,10 @@ def max_ari(df, X, ncs,
         flag_ling = methods.pop(methods.index('ling'))
     else:
         flag_ling = None
+    if 'prep' in methods:
+        flag_prep = methods.pop(methods.index('prep'))
+    else:
+        flag_prep = None
     morph_start = 'Anim'
     morph_end = 'Sing'
     synt_start = "acl"
@@ -68,6 +72,7 @@ def max_ari(df, X, ncs,
     for word in df.word.unique():
         vectors_ling = []
         vectors_ling_target = []
+        vectors_prep = []
         vectors = []
         vector_for_clustering = [[]*df.shape[0]]
         # collecting examples for the word
@@ -79,7 +84,9 @@ def max_ari(df, X, ncs,
                 else vectorizer.fit_transform(X[mask]).toarray()
         if flag_ling:
             vectors_ling_target = df_ling_target[mask].to_numpy()
-        for i in [vectors, vectors_ling, vectors_ling_target]:
+        if flag_prep:
+            vectors_prep = df.prep_vec[mask].to_numpy()
+        for i in [vectors, vectors_ling, vectors_ling_target, vectors_prep]:
             if len(vector_for_clustering) > 1 and len(i) > 1:
                 vector_for_clustering = np.hstack((vector_for_clustering, i))
             elif not (len(vector_for_clustering) > 1) and len(i) > 1:
