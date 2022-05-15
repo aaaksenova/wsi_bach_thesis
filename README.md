@@ -10,7 +10,7 @@ We have created a pipeline for comparing the importance of 8 linguistic feature 
 
 * **Lexical substitute vectors** – tf-idf encoded list of context-based substitutes of the target word
 
-* Aggregated **Morphological** and **syntactic** behavioural profiles of the substitutes based on Russian National Corpus
+* Aggregated **morphological** and **syntactic** behavioural profiles of the substitutes based on Russian National Corpus
 
 * Aggregated **syntactic** behavioural profiles of the substitutes' dependencies based on Russian National Corpus
 
