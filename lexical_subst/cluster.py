@@ -10,7 +10,6 @@ from sklearn.metrics import silhouette_score
 import random
 import torch
 from generate_subst import generate
-import os
 
 
 def set_all_seeds(seed):
@@ -45,6 +44,14 @@ def max_ari(df, X, ncs,
         flag_prep = methods.pop(methods.index('prep'))
     else:
         flag_prep = None
+    if 'headvec' in methods:
+        flag_headvec = methods.pop(methods.index('headvec'))
+    else:
+        flag_headvec = None
+    if 'headling' in methods:
+        flag_headling = methods.pop(methods.index('headling'))
+    else:
+        flag_headling = None
     morph_start = 'Anim'
     morph_end = 'Sing'
     synt_start = "acl"
@@ -55,6 +62,7 @@ def max_ari(df, X, ncs,
          'synt': [synt_start, synt_end],
          'child': [child_start, child_end]
          }
+
     # if not flag_subst:
     try:
         df_profiles = df.loc[:, m[methods[0]][0]: m[methods[0]][1]].astype('float')
@@ -70,11 +78,10 @@ def max_ari(df, X, ncs,
             for method in methods[1:]:
                 df_profiles.join(df.loc[:, m[method][0]: m[method][1]].astype('float'))
     for word in df.word.unique():
-        vectors_ling = []
-        vectors_ling_target = []
-        vectors_prep = []
-        vectors = []
-        vector_for_clustering = [[]*df.shape[0]]
+        vectors_ling = np.array([[]])
+        vectors_ling_target = np.array([[]])
+        vectors_prep = np.array([[]])
+        vectors = np.array([[]])
         # collecting examples for the word
         mask = (df.word == word)
         if len(methods) >= 1:
@@ -85,13 +92,15 @@ def max_ari(df, X, ncs,
         if flag_ling:
             vectors_ling_target = df_ling_target[mask].to_numpy()
         if flag_prep:
-            vectors_prep = df.prep_vec[mask].to_numpy()
-        for i in [vectors, vectors_ling, vectors_ling_target, vectors_prep]:
-            if len(vector_for_clustering) > 1 and len(i) > 1:
-                vector_for_clustering = np.hstack((vector_for_clustering, i))
-            elif not (len(vector_for_clustering) > 1) and len(i) > 1:
-                vector_for_clustering = i
+            vectors_prep = np.stack(df.prep_vec[mask].tolist())
+        if flag_headvec:
+            vectors_headvec = np.stack(df.head_vec[mask].tolist())
+        if flag_headling:
+            vectors_headling = df[['head_pos', 'head_deprel']][mask].to_numpy()
+        stack_list = [i for i in [vectors, vectors_ling, vectors_ling_target,
+                                  vectors_prep, vectors_headvec, vectors_headling] if len(i[0]) > 0]
 
+        vector_for_clustering = np.hstack(stack_list)
 
         # ids of senses of the examples
         gold_sense_ids = df.gold_sense_id[mask]
@@ -210,11 +219,7 @@ def run_pipeline(path, modelname, top_k, methods):
     e.g. morph_synt_child_subst
     """
 
-    # if file exists just read it
-    if os.path.exists(f"substs_profiling_{modelname.split('/')[-1]}.tsv"):
-        df = pd.read_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep="\t")
-    else:
-        df = generate(path, modelname, top_k)
+    df = generate(path, modelname, top_k, methods)
     print('Data processing finished')
     subst_texts = df['subst_texts']
 

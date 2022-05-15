@@ -1,8 +1,9 @@
 import pandas as pd
 import torch
-from transformers import BertTokenizer, BertForMaskedLM, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForMaskedLM, AutoModel
+from transformers import AutoTokenizer, AutoModelForMaskedLM, AutoModel
 from tqdm.auto import tqdm
 from sklearn.feature_extraction import DictVectorizer
+from sklearn import preprocessing
 import stanza
 import numpy as np
 import random
@@ -11,6 +12,9 @@ from collections import Counter, OrderedDict
 import json
 from collect_ling_stats import parse_json
 import os
+
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 nlp = stanza.Pipeline('ru', processors="tokenize,pos,lemma,depparse")
@@ -23,7 +27,6 @@ def set_all_seeds(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
 
 
 set_all_seeds(42)
@@ -102,11 +105,7 @@ def extract_ling_feats(idxs, text, nlp):
     return case, number, dep
 
 
-def bert_prep_vectorization(dframe, modelname):
-
-    tokenizer = AutoTokenizer.from_pretrained(modelname)
-    model = AutoModel.from_pretrained(modelname).to(device)
-
+def bert_prep_vectorization(dframe, tokenizer, model):
     start_prep_idx = -1
     end_prep_idx = -1
     processed = nlp(dframe.context)
@@ -115,11 +114,12 @@ def bert_prep_vectorization(dframe, modelname):
         if start_id == token.start_char:
             target_idx = token.words[0].id
             for i in range(len(processed.sentences[0].tokens)):
-                if processed.sentences[0].dependencies[i][0].id == target_idx and processed.sentences[0].dependencies[i][1] == 'case':
+                if processed.sentences[0].dependencies[i][0].id == target_idx \
+                        and processed.sentences[0].dependencies[i][1] == 'case':
                     start_prep_idx = processed.sentences[0].dependencies[i][2].start_char
                     end_prep_idx = processed.sentences[0].dependencies[i][2].end_char
     if start_prep_idx == -1:
-        return 'no_prep', np.zeros((1, 312))[0]
+        return 'no_prep', None
     else:
         word = dframe.context[start_prep_idx: end_prep_idx]  # Extract word
         bert_input = tokenizer.encode(dframe.context, return_tensors="pt").to(device)  # Encode sentence
@@ -130,19 +130,68 @@ def bert_prep_vectorization(dframe, modelname):
             word_index = list(np.where(np.array(tokenized_sent) == word)[0])[0]
             word_embedding = sent_logits[:, word_index, :].cpu().detach().numpy()
         else:
-            return word.lower(), np.zeros((1, 312))[0]
+            return word.lower(), None
         return word.lower(), word_embedding[0]
 
 
-def intersect_sparse(substs_probs, substs_probs_y, nmasks=1, s=0, debug=False):
+def bert_head_vectorization(dframe, tokenizer, model):
+
+
+    start_prep_idx = -1
+    end_prep_idx = -1
+    processed = nlp(dframe.context)
+    start_id = int(dframe.positions.split(',')[0].split('-')[0].strip())
+    for token in processed.iter_tokens():
+        if start_id == token.start_char:
+            target_idx = token.words[0].head
+            for i in range(len(processed.sentences[0].tokens)):
+                if processed.sentences[0].dependencies[i][0].id == target_idx and processed.sentences[0].dependencies[i][2].start_char == start_id:
+                    start_prep_idx = processed.sentences[0].dependencies[i][0].start_char
+                    end_prep_idx = processed.sentences[0].dependencies[i][0].end_char
+                    head_pos = processed.sentences[0].dependencies[i][0].upos
+                    head_deprel = processed.sentences[0].dependencies[i][0].deprel
+    if end_prep_idx == -1 or end_prep_idx is None:
+        return 'no_verb', None, None, None
+    else:
+        word = dframe.context[start_prep_idx: end_prep_idx]  # Extract word
+        bert_input = tokenizer.encode(dframe.context, return_tensors="pt").to(device)  # Encode sentence
+        tokenized_sent = tokenizer.tokenize(dframe.context)  # Tokenize sentence
+        sent_logits = model(bert_input, return_dict=True)["last_hidden_state"]
+        if word in tokenized_sent:
+            # Get first instance of word:
+            word_index = list(np.where(np.array(tokenized_sent) == word)[0])[0]
+            word_embedding = sent_logits[:, word_index, :].cpu().detach().numpy()
+        else:
+            # in case the word is divided in pieces:
+            prev_token = ""
+            word_embedding = []
+            for i, token_i in enumerate(tokenized_sent):
+                token_i = token_i.lower()
+                if word.startswith(token_i):
+                    word_embedding.append(sent_logits[:, i, :].cpu().detach().numpy())
+                    prev_token = token_i
+                    continue
+                if prev_token and token_i.startswith("##"):
+                    word_embedding.append(sent_logits[:, i, :].cpu().detach().numpy())
+                    word_embedding = np.mean(word_embedding, axis=0)
+                    break
+                else:
+                    prev_token = ""
+                    word_embedding = []
+            if len(word_embedding) == 0:
+                return word.lower(), None, head_pos, head_deprel
+        return word.lower(), word_embedding[0], head_pos, head_deprel
+
+
+def intersect_sparse(substs_probs, substs_probs_y, nmasks=1):
     """
     Combines different sets of substitutes (for different templates) using
     product of smoothed probability distributions.
     """
 
     vec = DictVectorizer(sparse=True)
-    f1 = substs_probs.apply(lambda l: {s: p for p, s in l})
-    f2 = substs_probs_y.apply(lambda l: {s: p for p, s in l})
+    f1 = substs_probs.apply(lambda x: {s: p for p, s in x})
+    f2 = substs_probs_y.apply(lambda x: {s: p for p, s in x})
     vec.fit(list(f1) + list(f2))
     f1, f2 = (vec.transform(list(f)) for f in (f1, f2))  # sparse matrix
 
@@ -153,7 +202,7 @@ def intersect_sparse(substs_probs, substs_probs_y, nmasks=1, s=0, debug=False):
     # finally, we don't want substs with 0
     # probs before smoothing in both distribs
     fn = np.array(vec.feature_names_)
-    maxlen = (substs_probs_y.apply(len) + substs_probs.apply(len)).max()
+    # maxlen = (substs_probs_y.apply(len) + substs_probs.apply(len)).max()
     m = prod
     n_texts = m.shape[0]
 
@@ -375,133 +424,149 @@ def synt_vectors(x, synt_profiles):
     return synt_scaled + synt_child_scaled
 
 
-def generate(path, modelname, top_k):
+def generate(path, modelname, top_k, methods):
     """
     Takes path to dataset in RUSSE-18 format,
     huggingface model name and the number of substitutes to use
     """
 
-    tokenizer, model = load_models(modelname)
-    df = pd.read_csv(path, sep='\t')
-    df['masked_before_target'] = df[['positions', 'context']].apply(lambda x: mask_before_target(*x), axis=1)
-    df['masked_after_target'] = df[['positions', 'context']].apply(lambda x: mask_after_target(*x), axis=1)
-    df[['target_case', 'target_num', 'target_dep']] = df.progress_apply(lambda x:
-                                                                        extract_ling_feats(x['positions'],
-                                                                                           x['context'], nlp),
-                                                                        axis=1, result_type='expand')
-    df = pd.get_dummies(df, columns=['target_case', 'target_num', 'target_dep'])
-    df['before_subst_prob'] = df['masked_before_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
-                                                                                                      x,
-                                                                                                      top_k=top_k))
-    df['after_subst_prob'] = df['masked_after_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
-                                                                                                    x,
-                                                                                                    top_k=top_k))
-    df['merged_subst'] = intersect_sparse(df['before_subst_prob'], df['after_subst_prob'])
-    nf_cnt = get_nf_cnt(df['merged_subst'])
-    topk = 128
-    df['subst_texts'] = df.apply(lambda r: preprocess_substs(r.before_subst_prob[:topk],
-                                                             nf_cnt=nf_cnt,
-                                                             lemmatize=True),
-                                 axis=1).str.join(' ')
-    out_unique = set()
-    for item in df['subst_texts'].tolist():
-        out_unique.update(item.split())
-    with open(f"all_substitutions_{modelname.split('/')[-1]}.txt", 'w') as fw:
-        for word in list(out_unique):
-            fw.write(word + '\n')
-    # checking if file exists
-    if not os.path.exists(f"profiles/{modelname.split('/')[-1]}_morph.json"):
-        print("Generating profiles")
-        parse_json(f"all_substitutions_{modelname.split('/')[-1]}.txt", modelname)
-        print("Generation finished")
+    if os.path.exists(f"substs_profiling_{modelname.split('/')[-1]}.tsv"):
+        df = pd.read_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep="\t")
+    else:
+        tokenizer, model = load_models(modelname)
+        df = pd.read_csv(path, sep='\t')
+        df['masked_before_target'] = df[['positions', 'context']].apply(lambda x: mask_before_target(*x), axis=1)
+        df['masked_after_target'] = df[['positions', 'context']].apply(lambda x: mask_after_target(*x), axis=1)
+        df[['target_case', 'target_num', 'target_dep']] = df.progress_apply(lambda x:
+                                                                            extract_ling_feats(x['positions'],
+                                                                                               x['context'], nlp),
+                                                                            axis=1, result_type='expand')
+        df = pd.get_dummies(df, columns=['target_case', 'target_num', 'target_dep'])
+        df['before_subst_prob'] = df['masked_before_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
+                                                                                                          x,
+                                                                                                          top_k=top_k))
+        df['after_subst_prob'] = df['masked_after_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
+                                                                                                        x,
+                                                                                                        top_k=top_k))
+        df['merged_subst'] = intersect_sparse(df['before_subst_prob'], df['after_subst_prob'])
+        nf_cnt = get_nf_cnt(df['merged_subst'])
+        df['subst_texts'] = df.apply(lambda r: preprocess_substs(r.before_subst_prob[:top_k],
+                                                                 nf_cnt=nf_cnt,
+                                                                 lemmatize=True),
+                                     axis=1).str.join(' ')
+        out_unique = set()
+        for item in df['subst_texts'].tolist():
+            out_unique.update(item.split())
+        with open(f"all_substitutions_{modelname.split('/')[-1]}.txt", 'w') as fw:
+            for word in list(out_unique):
+                fw.write(word + '\n')
+        # checking if file exists
+        if not os.path.exists(f"profiles/{modelname.split('/')[-1]}_morph.json"):
+            print("Generating profiles")
+            parse_json(f"all_substitutions_{modelname.split('/')[-1]}.txt", modelname)
+            print("Generation finished")
 
-    morph_profiles = json.load(open(
-        f"profiles/{modelname.split('/')[-1]}_morph.json"))
-    synt_profiles = json.load(open(
-        f"profiles/{modelname.split('/')[-1]}_synt.json"))
+        morph_profiles = json.load(open(
+            f"profiles/{modelname.split('/')[-1]}_morph.json"))
+        synt_profiles = json.load(open(
+            f"profiles/{modelname.split('/')[-1]}_synt.json"))
 
-    df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
-        'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1,
-                                                                    result_type='expand')
-    df[["acl",
-        "advcl",
-        "advmod",
-        "amod",
-        "appos",
-        "aux",
-        "case",
-        "cc",
-        "ccomp",
-        "clf",
-        "compound",
-        "conj",
-        "cop",
-        "csubj",
-        "dep",
-        "det",
-        "discourse",
-        "dislocated",
-        "expl",
-        "fixed",
-        "flat",
-        "goeswith",
-        "iobj",
-        "list",
-        "mark",
-        "nmod",
-        "nsubj",
-        "nummod",
-        "obj",
-        "obl",
-        "orphan",
-        "parataxis",
-        "punct",
-        "reparandum",
-        "root",
-        "vocative",
-        "xcomp",
-        "acl_child",
-        "advcl_child",
-        "advmod_child",
-        "amod_child",
-        "appos_child",
-        "aux_child",
-        "case_child",
-        "cc_child",
-        "ccomp_child",
-        "clf_child",
-        "compound_child",
-        "conj_child",
-        "cop_child",
-        "csubj_child",
-        "dep_child",
-        "det_child",
-        "discourse_child",
-        "dislocated_child",
-        "expl_child",
-        "fixed_child",
-        "flat_child",
-        "goeswith_child",
-        "iobj_child",
-        "list_child",
-        "mark_child",
-        "nmod_child",
-        "nsubj_child",
-        "nummod_child",
-        "obj_child",
-        "obl_child",
-        "orphan_child",
-        "parataxis_child",
-        "punct_child",
-        "reparandum_child",
-        "root_child",
-        "vocative_child",
-        "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
-    df[['prep', 'prep_vec']] = df.apply(lambda x: bert_prep_vectorization(x, modelname), result_type='expand', axis=1)
-    df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
-    df.to_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep='\t', index=False)
-
+        df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
+            'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1,
+                                                                        result_type='expand')
+        df[["acl",
+            "advcl",
+            "advmod",
+            "amod",
+            "appos",
+            "aux",
+            "case",
+            "cc",
+            "ccomp",
+            "clf",
+            "compound",
+            "conj",
+            "cop",
+            "csubj",
+            "dep",
+            "det",
+            "discourse",
+            "dislocated",
+            "expl",
+            "fixed",
+            "flat",
+            "goeswith",
+            "iobj",
+            "list",
+            "mark",
+            "nmod",
+            "nsubj",
+            "nummod",
+            "obj",
+            "obl",
+            "orphan",
+            "parataxis",
+            "punct",
+            "reparandum",
+            "root",
+            "vocative",
+            "xcomp",
+            "acl_child",
+            "advcl_child",
+            "advmod_child",
+            "amod_child",
+            "appos_child",
+            "aux_child",
+            "case_child",
+            "cc_child",
+            "ccomp_child",
+            "clf_child",
+            "compound_child",
+            "conj_child",
+            "cop_child",
+            "csubj_child",
+            "dep_child",
+            "det_child",
+            "discourse_child",
+            "dislocated_child",
+            "expl_child",
+            "fixed_child",
+            "flat_child",
+            "goeswith_child",
+            "iobj_child",
+            "list_child",
+            "mark_child",
+            "nmod_child",
+            "nsubj_child",
+            "nummod_child",
+            "obj_child",
+            "obl_child",
+            "orphan_child",
+            "parataxis_child",
+            "punct_child",
+            "reparandum_child",
+            "root_child",
+            "vocative_child",
+            "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
+        df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
+        df.to_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep='\t', index=False)
+    if 'prep' in methods:
+        tokenizer = AutoTokenizer.from_pretrained(modelname)
+        model = AutoModel.from_pretrained(modelname).to(device)
+        df[['prep', 'prep_vec']] = df.progress_apply(lambda x: bert_prep_vectorization(x, tokenizer, model),
+                                                     result_type='expand', axis=1)
+        df['prep_vec'] = df['prep_vec'].apply(
+            lambda x: x if x is not None else np.zeros_like(df[~df['prep_vec'].isna()].iloc[0].prep_vec))
+    if 'headvec' in methods or 'headling' in methods:
+        le = preprocessing.LabelEncoder()
+        tokenizer = AutoTokenizer.from_pretrained(modelname)
+        model = AutoModel.from_pretrained(modelname).to(device)
+        df[['head', 'head_vec', 'head_pos', 'head_deprel']] = df.progress_apply(lambda x:
+                                                                                bert_head_vectorization(x, tokenizer,
+                                                                                                        model),
+                                                                                result_type='expand', axis=1)
+        df['head_vec'] = df['head_vec'].apply(
+            lambda x: x if x is not None else np.zeros_like(df[~df['head_vec'].isna()].iloc[0].head_vec))
+        df['head_pos'] = le.fit_transform(df['head_pos'])
+        df['head_deprel'] = le.fit_transform(df['head_deprel'])
     return df
-
-
-#generate('../russe-wsi-kit/data/main/bts-rnc/train.csv', 'rubert', '50')
