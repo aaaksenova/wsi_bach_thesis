@@ -7,7 +7,7 @@
 TARGET=${1}  # List of target words, one per line
 CONLL_DIR=${2}  # Directory with conllu.gz files
 
-OUTJSONS=output/jsons
+OUTJSONS=output_wiki/jsons
 mkdir -p ${OUTJSONS}
 
 echo "Extracting grammatical profiles..."

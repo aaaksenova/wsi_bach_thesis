@@ -10,4 +10,4 @@ for file in os.listdir('result'):
 
 
 df_overall = pd.DataFrame(df_dict).sort_values('max_ari', ascending=False, ignore_index=True)
-df_overall.to_csv('result_comparison_test.tsv', sep='\t')
+df_overall.to_csv('result_comparison.tsv', sep='\t')

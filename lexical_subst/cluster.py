@@ -82,6 +82,8 @@ def max_ari(df, X, ncs,
         vectors_ling_target = np.array([[]])
         vectors_prep = np.array([[]])
         vectors = np.array([[]])
+        vectors_headling = np.array([[]])
+        vectors_headvec = np.array([[]])
         # collecting examples for the word
         mask = (df.word == word)
         if len(methods) >= 1:

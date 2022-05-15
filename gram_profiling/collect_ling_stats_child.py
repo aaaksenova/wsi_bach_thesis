@@ -7,23 +7,25 @@ from smart_open import open
 import os
 import json
 
-if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
-    )
-    logger = logging.getLogger(__name__)
 
-    parser = argparse.ArgumentParser()
-    arg = parser.add_argument
-    arg("--input", "-i", help="Path to a CONLL file", required=True)
-    arg("--target", "-t", help="Path to target words", required=True)
-    arg("--output", "-o", help="Output path (json)", required=False)
+def parse_json(target, inp, output=None):
+    # logging.basicConfig(
+    #     format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
+    # )
+    # logger = logging.getLogger(__name__)
+    #
+    # parser = argparse.ArgumentParser()
+    # arg = parser.add_argument
+    # arg("--target", "-t", help="Path to target words", required=True)
+    # arg("--input", "-i", help="Path to a CONLL directory", required=True)
+    # arg("--output", "-o", help="Output path (json)", required=False)
+    #
+    # args = parser.parse_args()
 
-    args = parser.parse_args()
 
     target_words = {}
 
-    for line in open(args.target, "r"):
+    for line in open(target, "r"):
         word = line.strip().split("\t")[0]
         pos = None
         if "_" in word:
@@ -39,8 +41,8 @@ if __name__ == "__main__":
     dep_dict = {}
     rels = []
 
-    for input_conllu in os.listdir(args.input):
-        for line in open(os.path.join(args.input, input_conllu), "r"):
+    for input_conllu in os.listdir(inp):
+        for line in open(os.path.join(inp, input_conllu), "r"):
             if not line.strip():
                 continue
             if line.startswith("# text"):
@@ -93,11 +95,11 @@ if __name__ == "__main__":
         rels = []
         dep_dict = {}
 
-        if args.output:
-            with open(f"{args.output}_morph.json", "w") as f:
+        if output:
+            with open(f"{output}_morph.json", "w") as f:
                 out = json.dumps(morph_properties, ensure_ascii=False, indent=4)
                 f.write(out)
-            with open(f"{args.output}_synt.json", "w") as f:
+            with open(f"{output}_synt.json", "w") as f:
                 out = json.dumps(syntax_properties, ensure_ascii=False, indent=4)
                 f.write(out)
         else:
