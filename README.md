@@ -5,7 +5,7 @@
 
 In this repo you will find the scripts to run the evaluation of different features in Word Sense Induction task for Russian nouns.
 
-This work deals with comparing the preformance of several types of linguistic features with standard Lexical Substitution method suggested by Arefyev et. al. 2021.
+This work deals with comparing the performance of several types of linguistic features with standard Lexical Substitution method suggested by Arefyev et. al. 2021.
 We have created a pipeline for comparing the importance of 8 linguistic feature sets, namely:
 
 * **Lexical substitute vectors** – tf-idf encoded list of context-based substitutes of the target word
