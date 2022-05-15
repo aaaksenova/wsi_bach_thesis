@@ -13,6 +13,9 @@ You can choose between 4 types of features to use for clustering:
 - 'synt' - syntactic profiles of substitutes in RNC
 - 'child' - syntactic profiles of children dependencies of substitutes in RNC
 - 'ling' - morphological and syntactic features of target word in each sentence
+- 'prep' - embedding of the preposition
+- 'headvec' - embedding of the target noun head
+- 'headling' – POS and UD relation of the target noun head
 
 The features can be combined. In this case they should be passed separated by '_'
 
