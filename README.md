@@ -20,4 +20,4 @@ We have created a pipeline for comparing the importance of 8 linguistic feature 
 
 * Embedding of the **head** of the target word
 
-* **POS** and **syntactic relations** of the head of the target word
+* **POS and syntactic relations** of the head of the target word
