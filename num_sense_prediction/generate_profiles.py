@@ -242,7 +242,7 @@ def generate(path):
         "vocative_child",
         "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
 
-    df.to_csv(f"profied_words.tsv", sep='\t', index=False)
+    df.to_csv(f"profiled_words.tsv", sep='\t', index=False)
 
 
 generate("/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/num_sense_prediction/senses_rnc_wiki.tsv")
