@@ -131,7 +131,6 @@ def bert_prep_vectorization(dframe, tokenizer, model):
             word_embedding = sent_logits[:, word_index, :].cpu().detach().numpy()
         else:
             return word.lower(), None
-        return word.lower(), word_embedding[0]
 
 
 def bert_head_vectorization(dframe, tokenizer, model):
@@ -549,7 +548,6 @@ def generate(path, modelname, top_k, methods):
             "vocative_child",
             "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
         df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
-        df.to_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep='\t', index=False)
     if 'prep' in methods:
         if not os.path.exists(f"profiles/{modelname.split('/')[-1]}_prep.npy"):
             tokenizer = AutoTokenizer.from_pretrained(modelname)
@@ -563,7 +561,7 @@ def generate(path, modelname, top_k, methods):
                 np.save(f, prep_vec)
         else:
             with open(f"profiles/{modelname.split('/')[-1]}_prep.npy", 'rb') as f:
-                prep_vec = np.load(f)
+                prep_vec = np.load(f, allow_pickle=True)
             df['prep_vec'] = prep_vec
     if 'headvec' in methods or 'headling' in methods:
         if not os.path.exists(f"profiles/{modelname.split('/')[-1]}_head.npy"):
@@ -583,6 +581,7 @@ def generate(path, modelname, top_k, methods):
                 np.save(f, head_vec)
         else:
             with open(f"profiles/{modelname.split('/')[-1]}_head.npy", 'rb') as f:
-                head_vec = np.load(f)
+                head_vec = np.load(f, allow_pickle=True)
             df['head_vec'] = head_vec
+    df.to_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep='\t', index=False)
     return df
