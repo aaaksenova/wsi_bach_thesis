@@ -146,23 +146,23 @@ def synt_vectors(x, synt_profiles):
     return synt_scaled + synt_child_scaled
 
 
-def generate(path):
+def generate(path, name):
     df = pd.read_csv(path, sep='\t')
     words = df.Lemma.tolist()
-    if not os.path.exists(f"words_for_profiling.txt"):
-        with open("words_for_profiling.txt", 'w') as fw:
+    if not os.path.exists(f"{name}_for_profiling.txt"):
+        with open(f"{name}_for_profiling.txt", 'w') as fw:
             for word in words:
                 fw.write(word+"\n")
 
-    if not os.path.exists(f"profiles/profiles_morph.json"):
+    if not os.path.exists(f"profiles/{name}_morph.json"):
         print("Generating profiles")
-        parse_json(f"words_for_profiling.txt", "profiles")
+        parse_json(f"{name}_for_profiling.txt", "profiles")
         print("Generation finished")
 
     morph_profiles = json.load(open(
-        f"profiles/profiles_morph.json"))
+        f"profiles/{name}_morph.json"))
     synt_profiles = json.load(open(
-        f"profiles/profiles_synt.json"))
+        f"profiles/{name}_synt.json"))
 
     df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
         'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1,
@@ -242,7 +242,7 @@ def generate(path):
         "vocative_child",
         "xcomp_child"]] = df.progress_apply(lambda x: synt_vectors(x, synt_profiles), axis=1, result_type='expand')
 
-    df.to_csv(f"profiled_words.tsv", sep='\t', index=False)
+    df.to_csv(f"profiled_{name}.tsv", sep='\t', index=False)
 
 
-generate("/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/num_sense_prediction/senses_rnc_wiki.tsv")
+# generate("/Users/a19336136/PycharmProjects/ling_wsi/wsi_bach_thesis/num_sense_prediction/senses_rnc_wiki.tsv", "words")

@@ -551,22 +551,38 @@ def generate(path, modelname, top_k, methods):
         df.drop(columns=['before_subst_prob', 'after_subst_prob', 'merged_subst'], inplace=True)
         df.to_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep='\t', index=False)
     if 'prep' in methods:
-        tokenizer = AutoTokenizer.from_pretrained(modelname)
-        model = AutoModel.from_pretrained(modelname).to(device)
-        df[['prep', 'prep_vec']] = df.progress_apply(lambda x: bert_prep_vectorization(x, tokenizer, model),
-                                                     result_type='expand', axis=1)
-        df['prep_vec'] = df['prep_vec'].apply(
-            lambda x: x if x is not None else np.zeros_like(df[~df['prep_vec'].isna()].iloc[0].prep_vec))
+        if not os.path.exists(f"profiles/{modelname.split('/')[-1]}_prep.npy"):
+            tokenizer = AutoTokenizer.from_pretrained(modelname)
+            model = AutoModel.from_pretrained(modelname).to(device)
+            df[['prep', 'prep_vec']] = df.progress_apply(lambda x: bert_prep_vectorization(x, tokenizer, model),
+                                                         result_type='expand', axis=1)
+            df['prep_vec'] = df['prep_vec'].apply(
+                lambda x: x if x is not None else np.zeros_like(df[~df['prep_vec'].isna()].iloc[0].prep_vec))
+            prep_vec = df['prep_vec'].to_numpy()
+            with open(f"profiles/{modelname.split('/')[-1]}_prep.npy", 'wb') as f:
+                np.save(f, prep_vec)
+        else:
+            with open(f"profiles/{modelname.split('/')[-1]}_prep.npy", 'rb') as f:
+                prep_vec = np.load(f)
+            df['prep_vec'] = prep_vec
     if 'headvec' in methods or 'headling' in methods:
-        le = preprocessing.LabelEncoder()
-        tokenizer = AutoTokenizer.from_pretrained(modelname)
-        model = AutoModel.from_pretrained(modelname).to(device)
-        df[['head', 'head_vec', 'head_pos', 'head_deprel']] = df.progress_apply(lambda x:
-                                                                                bert_head_vectorization(x, tokenizer,
-                                                                                                        model),
-                                                                                result_type='expand', axis=1)
-        df['head_vec'] = df['head_vec'].apply(
-            lambda x: x if x is not None else np.zeros_like(df[~df['head_vec'].isna()].iloc[0].head_vec))
-        df['head_pos'] = le.fit_transform(df['head_pos'])
-        df['head_deprel'] = le.fit_transform(df['head_deprel'])
+        if not os.path.exists(f"profiles/{modelname.split('/')[-1]}_head.npy"):
+            le = preprocessing.LabelEncoder()
+            tokenizer = AutoTokenizer.from_pretrained(modelname)
+            model = AutoModel.from_pretrained(modelname).to(device)
+            df[['head', 'head_vec', 'head_pos', 'head_deprel']] = df.progress_apply(lambda x:
+                                                                                    bert_head_vectorization(x, tokenizer,
+                                                                                                            model),
+                                                                                    result_type='expand', axis=1)
+            df['head_vec'] = df['head_vec'].apply(
+                lambda x: x if x is not None else np.zeros_like(df[~df['head_vec'].isna()].iloc[0].head_vec))
+            df['head_pos'] = le.fit_transform(df['head_pos'])
+            df['head_deprel'] = le.fit_transform(df['head_deprel'])
+            head_vec = df['head_vec'].to_numpy()
+            with open(f"profiles/{modelname.split('/')[-1]}_head.npy", 'wb') as f:
+                np.save(f, head_vec)
+        else:
+            with open(f"profiles/{modelname.split('/')[-1]}_head.npy", 'rb') as f:
+                head_vec = np.load(f)
+            df['head_vec'] = head_vec
     return df

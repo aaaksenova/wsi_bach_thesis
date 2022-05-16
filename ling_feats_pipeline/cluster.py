@@ -120,7 +120,7 @@ def max_ari(df, X, ncs,
 
 
 def clusterize_search(word, vecs, gold_sense_ids=None,
-                      ncs= list(range(1, 5, 1)) + list(range(5, 12, 2)),
+                      ncs=list(range(1, 5, 1)) + list(range(5, 12, 2)),
                       affinity='cosine', linkage='average'):
     """
     Gets word, vectors, gold_sense_ids and provides AgglomerativeClustering.
