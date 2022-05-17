@@ -23,7 +23,8 @@ set_all_seeds(42)
 
 
 def max_ari(df, X, ncs,
-            affinity='cosine', linkage='average', methods=None, vectorizer=None):
+            affinity='cosine', linkage='average', methods=None, vectorizer=None,
+            ncs_search=True):
     """
     Gets data and set of profiling methods.
     Grammatical profiles are vectorized
@@ -109,10 +110,12 @@ def max_ari(df, X, ncs,
         gold_sense_ids = None if gold_sense_ids.isnull().any() \
             else gold_sense_ids
 
+        if not ncs_search:
+            ncs = [df.num_senses[mask][0]]
         # clusterization (ari is kept in sdf along with other info)
         best_clids, sdf, _ = clusterize_search(word, vector_for_clustering, gold_sense_ids,
                                                ncs=ncs,
-                                               affinity=affinity, linkage=linkage)
+                                               affinity=affinity, linkage=linkage, ncs_search=ncs_search)
         df.loc[mask, 'predict_sense_id'] = best_clids  # result_bts_rnc ids of clusters
         sdfs.append(sdf)
 
@@ -121,7 +124,7 @@ def max_ari(df, X, ncs,
 
 def clusterize_search(word, vecs, gold_sense_ids=None,
                       ncs=list(range(1, 5, 1)) + list(range(5, 12, 2)),
-                      affinity='cosine', linkage='average'):
+                      affinity='cosine', linkage='average', ncs_search=True):
     """
     Gets word, vectors, gold_sense_ids and provides AgglomerativeClustering.
     """
@@ -224,6 +227,13 @@ def run_pipeline(path, modelname, top_k, methods):
     df = generate(path, modelname, top_k, methods)
     print('Data processing finished')
     subst_texts = df['subst_texts']
+    if 'num_senses' in df.columns:
+        ncs = 0
+        ncs_search = False
+    else:
+        ncs = (2, 10)
+        ncs = range(*ncs)
+        ncs_search = True
 
     vectorizer = 'TfidfVectorizer'
     lemmatize = True
@@ -231,7 +241,6 @@ def run_pipeline(path, modelname, top_k, methods):
     min_df = 0.05
     max_df = 0.95
     ngram_range = (1, 1)
-    ncs = (2, 10)
 
     vec = eval(vectorizer)(token_pattern=r"(?u)\b\w+\b",
                            min_df=min_df, max_df=max_df,
@@ -243,7 +252,8 @@ def run_pipeline(path, modelname, top_k, methods):
                    affinity='cosine',
                    linkage='average',
                    methods=methods,
-                   vectorizer=vec)
+                   vectorizer=vec,
+                   )
 
     res_df, res, sdf = metrics(sdfs)
     res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t')

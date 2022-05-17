@@ -1,3 +1,0 @@
-docopt
-ruptures
-smart_open
