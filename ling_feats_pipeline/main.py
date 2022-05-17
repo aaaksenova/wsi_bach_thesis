@@ -8,8 +8,9 @@ def main():
     parser.add_argument('model', type=str, help='Write huggingface bert name')
     parser.add_argument('top_k', type=str, help='Write number of substitutes')
     parser.add_argument('methods', type=str, help='Write methods separated by _')
+    parser.add_argument('--detailed', action='store_true', help='If passed returns detailed analysis of clustering')
     args = parser.parse_args()
-    run_pipeline(args.path, args.model, int(args.top_k), args.methods)
+    run_pipeline(args.path, args.model, int(args.top_k), args.methods, detailed_analysis=args.detailed)
 
 
 if __name__ == '__main__':

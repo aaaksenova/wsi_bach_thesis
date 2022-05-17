@@ -1,5 +1,3 @@
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import numpy as np
 from sklearn.metrics import adjusted_rand_score as ARI
@@ -10,13 +8,19 @@ from sklearn.metrics import silhouette_score
 import random
 import torch
 from generate_subst import generate
+import os
+from sklearn.manifold import TSNE
+import plotly.express as px
+import warnings
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 def set_all_seeds(seed):
-  random.seed(seed)
-  np.random.seed(seed)
-  torch.manual_seed(seed)
-  torch.cuda.manual_seed(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
 
 
 set_all_seeds(42)
@@ -31,6 +35,7 @@ def max_ari(df, X, ncs,
     and senses are clustered.
     It returns metrics of clustering.
     """
+    df['subst_vecs'] = [[0]] * df.shape[0]
     sdfs = []
     methods = methods.split('_')
     if 'subst' in methods:
@@ -92,6 +97,8 @@ def max_ari(df, X, ncs,
         if flag_subst:
             vectors = X[mask] if vectorizer is None \
                 else vectorizer.fit_transform(X[mask]).toarray()
+            # print(len(vectors), df.loc[mask, 'subst_vecs'].shape)
+            df.loc[mask, 'subst_vecs'] = [frozenset(i) for i in vectors]
         if flag_ling:
             vectors_ling_target = df_ling_target[mask].to_numpy()
         if flag_prep:
@@ -111,15 +118,16 @@ def max_ari(df, X, ncs,
             else gold_sense_ids
 
         if not ncs_search:
-            ncs = [df.num_senses[mask][0]]
+            ncs = [df.num_senses[mask].to_list()[0]]
         # clusterization (ari is kept in sdf along with other info)
         best_clids, sdf, _ = clusterize_search(word, vector_for_clustering, gold_sense_ids,
                                                ncs=ncs,
                                                affinity=affinity, linkage=linkage, ncs_search=ncs_search)
+
         df.loc[mask, 'predict_sense_id'] = best_clids  # result_bts_rnc ids of clusters
         sdfs.append(sdf)
 
-    return sdfs
+    return sdfs, df
 
 
 def clusterize_search(word, vecs, gold_sense_ids=None,
@@ -206,16 +214,171 @@ def metrics(sdfs):
     idxmax = fixed_hypers.ari.idxmax()
     res_df = fixed_hypers.loc[idxmax:idxmax].copy()
     res_df = res_df.rename(columns=lambda c: 'fh_maxari' if c == 'ari' \
-                           else 'fh_' + c)
+        else 'fh_' + c)
     res_df['maxari'] = res.ari.mean()
 
     for metric in [c for c in sdf.columns if c.startswith('sil')]:
-        res_df[metric+'_ari'] = sdf.sort_values(by=metric).groupby(by='word').last().ari.mean()
+        res_df[metric + '_ari'] = sdf.sort_values(by=metric).groupby(by='word').last().ari.mean()
 
     return res_df, res, sdf
 
 
-def run_pipeline(path, modelname, top_k, methods):
+def format_str(df):
+    string = df['context']
+    target_word = df['word']
+    ret = []
+    i = 0
+    processed_string = []
+    for word in string.split():
+        if word == target_word:
+            processed_string.append('<b>')
+            processed_string.append(word)
+            processed_string.append('</b>')
+        else:
+            processed_string.append(word)
+    for word in processed_string:
+        if i == 12:
+            ret.append('<br>')
+            i = 0
+        i += 1
+        ret.append(word)
+    return " ".join(ret)
+
+
+def get_feature_mapping(df, methods):
+    dict_mapping = {'subst' : ['subst_vecs'],
+                    'ling': [i for i in df.columns.tolist() if 'target_' in i],
+                    'morph': ['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
+            'Fem', 'Masc', 'Neut', 'Plur', 'Sing'],
+                    'child': [
+            "acl_child",
+            "advcl_child",
+            "advmod_child",
+            "amod_child",
+            "appos_child",
+            "aux_child",
+            "case_child",
+            "cc_child",
+            "ccomp_child",
+            "clf_child",
+            "compound_child",
+            "conj_child",
+            "cop_child",
+            "csubj_child",
+            "dep_child",
+            "det_child",
+            "discourse_child",
+            "dislocated_child",
+            "expl_child",
+            "fixed_child",
+            "flat_child",
+            "goeswith_child",
+            "iobj_child",
+            "list_child",
+            "mark_child",
+            "nmod_child",
+            "nsubj_child",
+            "nummod_child",
+            "obj_child",
+            "obl_child",
+            "orphan_child",
+            "parataxis_child",
+            "punct_child",
+            "reparandum_child",
+            "root_child",
+            "vocative_child",
+            "xcomp_child"],
+                    'synt': ["acl",
+            "advcl",
+            "advmod",
+            "amod",
+            "appos",
+            "aux",
+            "case",
+            "cc",
+            "ccomp",
+            "clf",
+            "compound",
+            "conj",
+            "cop",
+            "csubj",
+            "dep",
+            "det",
+            "discourse",
+            "dislocated",
+            "expl",
+            "fixed",
+            "flat",
+            "goeswith",
+            "iobj",
+            "list",
+            "mark",
+            "nmod",
+            "nsubj",
+            "nummod",
+            "obj",
+            "obl",
+            "orphan",
+            "parataxis",
+            "punct",
+            "reparandum",
+            "root",
+            "vocative",
+            "xcomp"],
+                    'headling': ['head_pos', 'head_deprel'],
+                    'headvec': ['head_vec'],
+                    'prep': ['prep_vec']}
+    features = []
+    for m in methods.split('_'):
+        if m not in ['subst', 'headvec', 'prep']:
+            features.extend(dict_mapping[m])
+    features_vec = []
+    for m in methods.split('_'):
+        if m in ['subst', 'headvec', 'prep']:
+            features_vec.extend(dict_mapping[m])
+    return features, features_vec
+
+
+def make_html_picture(df, path, methods):
+
+    features, features_vec = get_feature_mapping(df, methods)
+    df['format_context'] = df.apply(format_str, axis=1)
+    df['gold_sense_id'] = df['gold_sense_id'].astype(str)
+    df['predict_sense_id'] = df['predict_sense_id'].astype(str)
+
+    for word in df.word.unique():
+        mask = (df.word == word)
+        df1 = df[mask].copy()
+        feats_for_clustering = df1[features].to_numpy()
+        if len(features_vec) > 0:
+            for i in features_vec:
+
+                if i == 'subst_vecs':
+                    maxlen = max([len(j) for j in df1[i].tolist()])
+                    feat_vec = np.vstack([list(j) + [0]*(maxlen-len(j)) for j in df1[i].tolist()])
+
+                else:
+                    feat_vec = df1[i].to_numpy()
+                feats_for_clustering = np.hstack((feats_for_clustering, feat_vec))
+
+        tsne = TSNE(n_components=2, init='pca').fit_transform(feats_for_clustering)
+
+        df1['tsne_x'] = [el[0] for el in tsne]
+        df1['tsne_y'] = [el[1] for el in tsne]
+
+        fig = px.scatter(df1,
+                         x="tsne_x",
+                         y="tsne_y",
+                         color="gold_sense_id",
+                         facet_col='word',
+                         symbol='predict_sense_id',
+                         text='format_context')
+
+        fig.update_traces(mode="markers", hovertemplate=None)
+        fig.write_html(f'{path}/{word}_visualization.html')
+
+
+def run_pipeline(path, modelname, top_k, methods, detailed_analysis=False):
     """
     Path: path to dataset
     Model: higgingface model
@@ -246,16 +409,34 @@ def run_pipeline(path, modelname, top_k, methods):
                            min_df=min_df, max_df=max_df,
                            analyzer=analyzer, ngram_range=ngram_range)
     ncs = (2, 10)
-    sdfs = max_ari(df,
-                   subst_texts,
-                   ncs=range(*ncs),
-                   affinity='cosine',
-                   linkage='average',
-                   methods=methods,
-                   vectorizer=vec,
-                   )
+    sdfs, df_predicted = max_ari(df,
+                                 subst_texts,
+                                 ncs=range(*ncs),
+                                 affinity='cosine',
+                                 linkage='average',
+                                 methods=methods,
+                                 vectorizer=vec,
+                                 ncs_search=ncs_search)
 
     res_df, res, sdf = metrics(sdfs)
-    res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t')
-    res.to_csv(f'result/res_detailed_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t')
+
+    if detailed_analysis:
+        if not os.path.exists(f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}'):
+            os.mkdir(f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}')
+        res_df.to_csv(
+            f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/res_overall_{modelname.split("/")[-1]}_{methods}.tsv',
+            sep='\t', index=False)
+        res.to_csv(
+            f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/res_detailed_{modelname.split("/")[-1]}_{methods}.tsv',
+            sep='\t', index=False)
+        df_predicted[['word', 'context', 'positions', 'gold_sense_id', 'predict_sense_id']].to_csv(
+            f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/predicted_{modelname.split("/")[-1]}_{methods}.tsv',
+            sep='\t', index=False)
+        make_html_picture(df_predicted, f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/',
+                          methods=methods)
+
+    else:
+        if not os.path.exists('result'):
+            os.mkdir('result')
+        res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t', index=False)
     print('Clustering finished')
