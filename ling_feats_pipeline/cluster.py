@@ -127,6 +127,8 @@ def max_ari(df, X, ncs,
         df.loc[mask, 'predict_sense_id'] = best_clids
         # result_bts_rnc ids of clusters
         sdfs.append(sdf)
+    df['predict_sense_id'].fillna(0, inplace=True)
+    df['predict_sense_id'] = df['predict_sense_id'].astype('int64')
 
     return sdfs, df
 
@@ -208,7 +210,6 @@ def metrics(sdfs):
     sdf = pd.concat(sdfs, ignore_index=True)
     # groupby is docuented to preserve inside group order
     res = sdf.sort_values(by='ari').groupby(by='word').last()
-    print(res)
     # maxari for fixed hypers
     fixed_hypers = sdf.groupby(['affinity',
                                 'linkage',
