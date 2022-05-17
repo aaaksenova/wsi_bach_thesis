@@ -127,7 +127,6 @@ def max_ari(df, X, ncs,
         df.loc[mask, 'predict_sense_id'] = best_clids
         # result_bts_rnc ids of clusters
         sdfs.append(sdf)
-    df['predict_sense_id'] = df['predict_sense_id'].astype('int64')
 
     return sdfs, df
 
@@ -209,6 +208,7 @@ def metrics(sdfs):
     sdf = pd.concat(sdfs, ignore_index=True)
     # groupby is docuented to preserve inside group order
     res = sdf.sort_values(by='ari').groupby(by='word').last()
+    print(res)
     # maxari for fixed hypers
     fixed_hypers = sdf.groupby(['affinity',
                                 'linkage',
@@ -427,10 +427,10 @@ def run_pipeline(path, modelname, top_k, methods, detailed_analysis=False):
             os.mkdir(f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}')
         res_df.to_csv(
             f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/res_overall_{modelname.split("/")[-1]}_{methods}.tsv',
-            sep='\t', index=False)
+            sep='\t')
         res.to_csv(
             f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/res_detailed_{modelname.split("/")[-1]}_{methods}.tsv',
-            sep='\t', index=False)
+            sep='\t')
         df_predicted[['word', 'context', 'positions', 'gold_sense_id', 'predict_sense_id']].to_csv(
             f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/predicted_{modelname.split("/")[-1]}_{methods}.tsv',
             sep='\t', index=False)
@@ -440,5 +440,5 @@ def run_pipeline(path, modelname, top_k, methods, detailed_analysis=False):
     else:
         if not os.path.exists('result'):
             os.mkdir('result')
-        res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t', index=False)
+        res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t')
     print('Clustering finished')
