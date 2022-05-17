@@ -227,6 +227,9 @@ def metrics(sdfs):
 
 
 def format_str(df):
+    """
+    Gets dataset and creates string formatting for html visualization
+    """
     string = df['context']
     target_word = df['word']
     ret = []
@@ -249,6 +252,10 @@ def format_str(df):
 
 
 def get_feature_mapping(df, methods):
+    """
+    Maps method keywords to dataframe columns
+    returns list of float type columns and list of array-like columns
+    """
     dict_mapping = {'subst' : ['subst_vecs'],
                     'ling': [i for i in df.columns.tolist() if 'target_' in i],
                     'morph': ['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
@@ -343,7 +350,9 @@ def get_feature_mapping(df, methods):
 
 
 def make_html_picture(df, path, methods):
-
+    """
+    Creates html visualization for each word in one clustering experiment.
+    """
     features, features_vec = get_feature_mapping(df, methods)
     df['format_context'] = df.apply(format_str, axis=1)
     df['gold_sense_id'] = df['gold_sense_id'].astype(str)

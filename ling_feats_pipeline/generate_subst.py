@@ -92,6 +92,9 @@ def predict_masked_sent(tokenizer, model, text, top_k):
 
 
 def extract_ling_feats(idxs, text, nlp):
+    """
+    Extracts cfse, number and dependency relation of the target
+    """
     start_id = int(idxs.split(',')[0].split('-')[0].strip())
     end_id = int(idxs.split(',')[0].split('-')[1].strip())
     processed = nlp(text)
@@ -106,6 +109,9 @@ def extract_ling_feats(idxs, text, nlp):
 
 
 def bert_prep_vectorization(dframe, tokenizer, model):
+    """
+    Extracts target word prepositions and their vectors..
+    """
     start_prep_idx = -1
     end_prep_idx = -1
     processed = nlp(dframe.context)
@@ -135,8 +141,9 @@ def bert_prep_vectorization(dframe, tokenizer, model):
 
 
 def bert_head_vectorization(dframe, tokenizer, model):
-
-
+    """
+    Extracts target word heads, their vectors, POS and dependency relation.
+    """
     start_prep_idx = -1
     end_prep_idx = -1
     processed = nlp(dframe.context)
@@ -255,7 +262,6 @@ def get_nf_cnt(substs_probs):
     """
     nf_cnt = Counter(nf for l in substs_probs \
                      for p, s in l for nf in {h.normal_form for h in ma(s)})
-    # print('\n'.join('%s: %d' % p for p in nf_cnt.most_common(10)))
     return nf_cnt
 
 
