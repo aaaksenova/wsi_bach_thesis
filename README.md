@@ -38,16 +38,7 @@ pip install -r requirements.txt
 ```
 2. To run number of senses prediction experiments:
 ```
-from probing.args import Args
-from probing.experiment import LogProb
-
-args = Args()
-args.model = 'bert-base-multilingual-cased' #xlm-roberta-base #facebook/mbart-large-cc25
-args.probe_tasks = ['en_ngram_shift', 'ru_ngram_shift', 'sv_ngram_shift']
-args.prober = 'logprob'
-
-experiment = LogProb(args=args)
-experiment.run()
+...
 ```
 
 
