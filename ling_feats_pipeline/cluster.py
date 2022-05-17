@@ -124,8 +124,10 @@ def max_ari(df, X, ncs,
                                                ncs=ncs,
                                                affinity=affinity, linkage=linkage, ncs_search=ncs_search)
 
-        df.loc[mask, 'predict_sense_id'] = best_clids  # result_bts_rnc ids of clusters
+        df.loc[mask, 'predict_sense_id'] = best_clids
+        # result_bts_rnc ids of clusters
         sdfs.append(sdf)
+    df['predict_sense_id'] = df['predict_sense_id'].astype('int64')
 
     return sdfs, df
 
