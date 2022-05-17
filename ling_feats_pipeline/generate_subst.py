@@ -131,6 +131,7 @@ def bert_prep_vectorization(dframe, tokenizer, model):
             word_embedding = sent_logits[:, word_index, :].cpu().detach().numpy()
         else:
             return word.lower(), None
+        return word.lower(), word_embedding[0]
 
 
 def bert_head_vectorization(dframe, tokenizer, model):
