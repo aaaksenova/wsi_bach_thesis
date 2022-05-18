@@ -55,16 +55,24 @@ def load_models(modelname):
     """
     tokenizer = AutoTokenizer.from_pretrained(modelname)
     model = AutoModelForMaskedLM.from_pretrained(modelname).to(device)
-    return tokenizer, model
+    roberta_flag = 'Roberta' in modelname
+    return tokenizer, model, roberta_flag
 
 
-def predict_masked_sent(tokenizer, model, text, top_k):
+def predict_masked_sent(tokenizer, model, text, top_k, roberta_flag=False):
     """
     Gets text and returns top_k model predictions with probabilities
     """
     # Tokenize input
 
     text = "[CLS] %s [SEP]" % text
+    # if roberta_flag:
+    #     text = text.replace("[MASK]", '<mask>')
+    #     print(text)
+    #     tokenized_text = tokenizer(text, truncation=True, return_tensors="pt")
+    #     print(tokenized_text)
+    #     masked_index = (tokenized_text.input_ids == tokenizer.mask_token_id)[0].nonzero(as_tuple=True)[0]
+    # else:
     tokenized_text = tokenizer.tokenize(text, truncation=True)
     masked_index = tokenized_text.index("[MASK]")
     indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
@@ -439,7 +447,7 @@ def generate(path, modelname, top_k, methods):
     if os.path.exists(f"substs_profiling_{modelname.split('/')[-1]}.tsv"):
         df = pd.read_csv(f"substs_profiling_{modelname.split('/')[-1]}.tsv", sep="\t")
     else:
-        tokenizer, model = load_models(modelname)
+        tokenizer, model, roberta_flag = load_models(modelname)
         df = pd.read_csv(path, sep='\t')
         df['masked_before_target'] = df[['positions', 'context']].apply(lambda x: mask_before_target(*x), axis=1)
         df['masked_after_target'] = df[['positions', 'context']].apply(lambda x: mask_after_target(*x), axis=1)
@@ -448,12 +456,16 @@ def generate(path, modelname, top_k, methods):
                                                                                                x['context'], nlp),
                                                                             axis=1, result_type='expand')
         df = pd.get_dummies(df, columns=['target_case', 'target_num', 'target_dep'])
-        df['before_subst_prob'] = df['masked_before_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
+        df['before_subst_prob'] = df['masked_before_target'].progress_apply(lambda x: predict_masked_sent(tokenizer,
+                                                                                                          model,
                                                                                                           x,
-                                                                                                          top_k=top_k))
-        df['after_subst_prob'] = df['masked_after_target'].progress_apply(lambda x: predict_masked_sent(tokenizer, model,
+                                                                                                          top_k=top_k,
+                                                                                                          roberta_flag=roberta_flag))
+        df['after_subst_prob'] = df['masked_after_target'].progress_apply(lambda x: predict_masked_sent(tokenizer,
+                                                                                                        model,
                                                                                                         x,
-                                                                                                        top_k=top_k))
+                                                                                                        top_k=top_k,
+                                                                                                        roberta_flag=roberta_flag))
         df['merged_subst'] = intersect_sparse(df['before_subst_prob'], df['after_subst_prob'])
         nf_cnt = get_nf_cnt(df['merged_subst'])
         df['subst_texts'] = df.apply(lambda r: preprocess_substs(r.before_subst_prob[:top_k],

@@ -10,6 +10,7 @@ import torch
 from generate_subst import generate
 import os
 from sklearn.manifold import TSNE
+import umap
 import plotly.express as px
 import warnings
 
@@ -97,7 +98,6 @@ def max_ari(df, X, ncs,
         if flag_subst:
             vectors = X[mask] if vectorizer is None \
                 else vectorizer.fit_transform(X[mask]).toarray()
-            # print(len(vectors), df.loc[mask, 'subst_vecs'].shape)
             df.loc[mask, 'subst_vecs'] = [frozenset(i) for i in vectors]
         if flag_ling:
             vectors_ling_target = df_ling_target[mask].to_numpy()
@@ -125,7 +125,7 @@ def max_ari(df, X, ncs,
                                                affinity=affinity, linkage=linkage, ncs_search=ncs_search)
 
         df.loc[mask, 'predict_sense_id'] = best_clids
-        # result_bts_rnc ids of clusters
+        # print(word, len(set(best_clids)))
         sdfs.append(sdf)
     df['predict_sense_id'].fillna(0, inplace=True)
     df['predict_sense_id'] = df['predict_sense_id'].astype('int64')
@@ -167,6 +167,7 @@ def clusterize_search(word, vecs, gold_sense_ids=None,
         clr = AgglomerativeClustering(affinity='precomputed',
                                       linkage=linkage,
                                       n_clusters=nc)
+
         clids = clr.fit_predict(distance_matrix) if nc > 1 \
             else np.zeros(len(vecs))
 
@@ -212,7 +213,7 @@ def metrics(sdfs):
     # all metrics for each unique word
     sdf = pd.concat(sdfs, ignore_index=True)
     # groupby is docuented to preserve inside group order
-    res = sdf.sort_values(by='ari').groupby(by='word').last()
+    res = sdf.sort_values(by='sil_cosine').groupby(by='word').last()
     # maxari for fixed hypers
     fixed_hypers = sdf.groupby(['affinity',
                                 'linkage',
@@ -376,14 +377,16 @@ def make_html_picture(df, path, methods):
                     feat_vec = df1[i].to_numpy()
                 feats_for_clustering = np.hstack((feats_for_clustering, feat_vec))
 
-        tsne = TSNE(n_components=2, init='pca').fit_transform(feats_for_clustering)
+        reducer = umap.UMAP(metric='cosine', random_state=42)
+        mapped = reducer.fit_transform(feats_for_clustering)
+        # tsne = TSNE(n_components=2, init='pca').fit_transform(feats_for_clustering)
 
-        df1['tsne_x'] = [el[0] for el in tsne]
-        df1['tsne_y'] = [el[1] for el in tsne]
+        df1['umap_x'] = [el[0] for el in mapped]
+        df1['umap_y'] = [el[1] for el in mapped]
 
         fig = px.scatter(df1,
-                         x="tsne_x",
-                         y="tsne_y",
+                         x="umap_x",
+                         y="umap_y",
                          color="gold_sense_id",
                          facet_col='word',
                          symbol='predict_sense_id',
@@ -403,9 +406,12 @@ def run_pipeline(path, modelname, top_k, methods, detailed_analysis=False):
     """
 
     df = generate(path, modelname, top_k, methods)
+    df_senses = pd.read_csv(path, sep='\t')
     print('Data processing finished')
     subst_texts = df['subst_texts']
-    if 'num_senses' in df.columns:
+    if 'num_senses' in df_senses.columns:
+        df['num_senses'] = df_senses['num_senses']
+        print('Num senses fixed')
         ncs = 0
         ncs_search = False
     else:
@@ -423,10 +429,10 @@ def run_pipeline(path, modelname, top_k, methods, detailed_analysis=False):
     vec = eval(vectorizer)(token_pattern=r"(?u)\b\w+\b",
                            min_df=min_df, max_df=max_df,
                            analyzer=analyzer, ngram_range=ngram_range)
-    ncs = (2, 10)
+    # ncs = (2, 10)
     sdfs, df_predicted = max_ari(df,
                                  subst_texts,
-                                 ncs=range(*ncs),
+                                 ncs=ncs,
                                  affinity='cosine',
                                  linkage='average',
                                  methods=methods,
