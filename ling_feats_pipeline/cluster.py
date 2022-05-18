@@ -9,7 +9,6 @@ import random
 import torch
 from generate_subst import generate
 import os
-from sklearn.manifold import TSNE
 import umap
 import plotly.express as px
 import warnings
@@ -460,4 +459,7 @@ def run_pipeline(path, modelname, top_k, methods, detailed_analysis=False):
         if not os.path.exists('result'):
             os.mkdir('result')
         res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t')
+        res.to_csv(
+            f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/res_detailed_{modelname.split("/")[-1]}_{methods}.tsv',
+            sep='\t')
     print('Clustering finished')
