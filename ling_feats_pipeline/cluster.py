@@ -160,6 +160,9 @@ def clusterize_search(word, vecs, gold_sense_ids=None,
     distance_matrix = cdist(vecs, vecs, metric=affinity)
     distances.append(distance_matrix)
     for nc in ncs:
+        if nc >= len(vecs):
+            print(f"We have only {len(vecs)} samples")
+            break
         # clusterization
         clr = AgglomerativeClustering(affinity='precomputed',
                                       linkage=linkage,
