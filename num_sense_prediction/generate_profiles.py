@@ -147,6 +147,7 @@ def synt_vectors(x, synt_profiles):
 
 
 def generate(path, name):
+    print(name)
     df = pd.read_csv(path, sep='\t')
     words = df.Lemma.tolist()
     if not os.path.exists(f"{name}_for_profiling.txt"):
@@ -156,7 +157,7 @@ def generate(path, name):
 
     if not os.path.exists(f"profiles/{name}_morph.json"):
         print("Generating profiles")
-        parse_json(f"{name}_for_profiling.txt", "profiles")
+        parse_json(f"{name}_for_profiling.txt", name)
         print("Generation finished")
 
     morph_profiles = json.load(open(
