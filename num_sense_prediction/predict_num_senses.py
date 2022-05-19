@@ -43,7 +43,7 @@ def get_num_senses_by_profiling(target_fname, train_words_fname):
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
     df = df.merge(df_test, left_on='word', right_on='Lemma')
     df.drop(columns=['Lemma'], inplace=True)
-    df.to_csv(f'num_senses_{target_fname}.tsv', sep='\t', index=False)
+    df.to_csv(f'num_senses_ling_{target_fname}.tsv', sep='\t', index=False)
 
 
 def get_idxs(word, sent):
@@ -194,7 +194,7 @@ def get_num_senses_by_variance(target_fname, train_words_fname):
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
     df = df.merge(df_test[['words', 'num_senses']], left_on='word', right_on='words')
     df.drop(columns=['words'], inplace=True)
-    df.to_csv(f'num_senses_var_{target_fname}.tsv', sep='\t', index=False)
+    df.to_csv(f'num_senses_dist_{target_fname}.tsv', sep='\t', index=False)
 
 
 def get_num_senses_joined_methods(target_fname, train_words_fname):
