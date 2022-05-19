@@ -18,19 +18,18 @@ freq = Frequency()
 freq.load()
 wn = RuWordNet()
 
+target_fname = 'sem_cluster_unique'
+train_words_fname = 'word_contexts'
 
-train_name = 'words'
-test_name = 'sem_cluster_unique'
 
-
-def get_num_senses_by_profiling():
-    generate("words_for_profiling.tsv", "train")
+def get_num_senses_by_profiling(target_fname, train_words_fname):
+    generate(f"{train_words_fname}.tsv", "train")
     df_train = pd.read_csv(f"profiled_train.tsv", sep='\t')  # Averaged num of senses
-    df = pd.read_csv("sem_cluster_data.tsv", sep='\t')
+    df = pd.read_csv(f"{target_fname}.tsv", sep='\t')
     df_test = df.groupby('word').gold_sense_id.nunique().reset_index()
     df_test.rename(columns={'word': 'Lemma'}, inplace=True)
-    df_test.to_csv("sem_cluster_unique.tsv", sep='\t', index=False)
-    generate("sem_cluster_unique.tsv", "test")
+    df_test.to_csv(f"{target_fname}_unique.tsv", sep='\t', index=False)
+    generate(f"{target_fname}_unique.tsv", "test")
     df_train = df_train.loc[~df_train.Lemma.isin(set(df_test.Lemma.tolist()))]
     df_train.to_csv(f"profiled_train.tsv", sep='\t', index=False)
     X, y = df_train.loc[:, 'Anim': 'xcomp_child'].to_numpy(), df_train.Mean.to_numpy()
@@ -44,10 +43,14 @@ def get_num_senses_by_profiling():
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
     df = df.merge(df_test, left_on='word', right_on='Lemma')
     df.drop(columns=['Lemma'], inplace=True)
-    df.to_csv('num_senses_sem_cluster_data.tsv', sep='\t', index=False)
+    df.to_csv(f'num_senses_{target_fname}.tsv', sep='\t', index=False)
 
 
 def get_idxs(word, sent):
+    """
+    Function gets word and sentence as an input
+    and returns list of token indexes
+    """
     idx = 0
     enc = [tokenizer.encode(x) for x in sent.split()]
     desired_output = []
@@ -65,10 +68,10 @@ def get_idxs(word, sent):
 
 
 def BERT_TOKENS(idxs, lines, model, tokenizer):
-    '''
+    """
     Function extracts words vectors
     as outputs from the last layer
-    '''
+    """
 
     embs = []
     for idx, line in tqdm(zip(idxs, lines), total=len(lines)):
@@ -123,10 +126,11 @@ def BERT_TOKENS(idxs, lines, model, tokenizer):
     return np.array(embs)
 
 
-
 def variance_counter(df):
-    '''Function calculates the variance for each word vectors distribution
-    extracted from the dataset'''
+    """
+    Function calculates the variance for each word vectors distribution
+    extracted from the dataset
+    """
 
     word_dict = {}
     y = []
@@ -152,10 +156,10 @@ def variance_counter(df):
 
 
 def collect_data(filename):
-    '''
+    """
     The function transforms RUSSE dataset into list of tuples
     where for each word its frequency, vector variation and number of senses are calculated
-    '''
+    """
 
     df = pd.read_csv(filename, sep='\t')
     df.rename(columns={'word':'lemma', 'positions':'indexes_target_token'}, inplace=True)
@@ -168,12 +172,12 @@ def collect_data(filename):
     return data_list
 
 
-def get_num_senses_by_variance():
-    df = pd.read_csv("sem_cluster_data.tsv", sep='\t')
+def get_num_senses_by_variance(target_fname, train_words_fname):
+    df = pd.read_csv(f"{target_fname}.tsv", sep='\t')
     if not os.path.exists("variances_train.tsv"):
-        full_data = collect_data("word_contexts.tsv")
+        full_data = collect_data(f"target_fname.tsv")
         df_train = pd.DataFrame(full_data, columns=['words', 'variation', 'selfsim', 'frequency', 'num_senses'])
-        df_test = collect_data("sem_cluster_data.tsv")
+        df_test = collect_data(f"{train_words_fname}.tsv")
         df_test = pd.DataFrame(df_test, columns=['words', 'variation', 'selfsim', 'frequency', 'num_senses'])
         df_train = df_train.loc[~df_train.words.isin(set(df_test.words.tolist()))]
         df_train.to_csv('variances_train.tsv', sep='\t', index=False)
@@ -190,11 +194,11 @@ def get_num_senses_by_variance():
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
     df = df.merge(df_test[['words', 'num_senses']], left_on='word', right_on='words')
     df.drop(columns=['words'], inplace=True)
-    df.to_csv('num_senses_var_sem_cluster_data.tsv', sep='\t', index=False)
+    df.to_csv(f'num_senses_var_{target_fname}.tsv', sep='\t', index=False)
 
 
-def get_num_senses_joined_methods():
-    df = pd.read_csv('sem_cluster_data.tsv', sep='\t')
+def get_num_senses_joined_methods(target_fname, train_words_fname):
+    df = pd.read_csv(f'{target_fname}.tsv', sep='\t')
     df_train_var = pd.read_csv("variances_train.tsv", sep='\t')
     df_test_var = pd.read_csv("variances_test.tsv", sep='\t')
     df_train_prof = pd.read_csv("profiled_train.tsv", sep='\t')
@@ -215,7 +219,7 @@ def get_num_senses_joined_methods():
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
     df = df.merge(df_test[['Lemma', 'num_senses']], left_on='word', right_on='Lemma')
     df.drop(columns=['Lemma'], inplace=True)
-    df.to_csv('num_senses_joined_sem_cluster_data.tsv', sep='\t', index=False)
+    df.to_csv(f'num_senses_joined_{target_fname}.tsv', sep='\t', index=False)
 
 
 get_num_senses_by_profiling()
