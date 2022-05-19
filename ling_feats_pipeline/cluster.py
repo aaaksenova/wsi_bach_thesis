@@ -460,6 +460,6 @@ def run_pipeline(path, modelname, top_k, methods, detailed_analysis=False):
             os.mkdir('result')
         res_df.to_csv(f'result/res_overall_{modelname.split("/")[-1]}_{methods}.tsv', sep='\t')
         res.to_csv(
-            f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/res_detailed_{modelname.split("/")[-1]}_{methods}.tsv',
+            f'result/res_detailed_{modelname.split("/")[-1]}_{methods}.tsv',
             sep='\t')
     print('Clustering finished')

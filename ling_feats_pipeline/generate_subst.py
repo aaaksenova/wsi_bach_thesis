@@ -66,13 +66,6 @@ def predict_masked_sent(tokenizer, model, text, top_k, roberta_flag=False):
     # Tokenize input
 
     text = "[CLS] %s [SEP]" % text
-    # if roberta_flag:
-    #     text = text.replace("[MASK]", '<mask>')
-    #     print(text)
-    #     tokenized_text = tokenizer(text, truncation=True, return_tensors="pt")
-    #     print(tokenized_text)
-    #     masked_index = (tokenized_text.input_ids == tokenizer.mask_token_id)[0].nonzero(as_tuple=True)[0]
-    # else:
     tokenized_text = tokenizer.tokenize(text, truncation=True)
     masked_index = tokenized_text.index("[MASK]")
     indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
