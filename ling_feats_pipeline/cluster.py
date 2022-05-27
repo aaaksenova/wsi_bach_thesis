@@ -174,7 +174,6 @@ def clusterize_search(word, vecs, gold_sense_ids=None,
         ari = ARI(gold_sense_ids, clids) if gold_sense_ids is not None else np.nan
         sil_cosine = -1. if len(np.unique(clids)) < 2 else silhouette_score(vecs, clids, metric='cosine')
         sil_euclidean = -1. if len(np.unique(clids)) < 2 else silhouette_score(vecs, clids, metric='euclidean')
-
         # vc like 5/4/3 says that
         # there are 5 examples w golden_id=id1;
         # there are 4 examples w golden_id=id2;
