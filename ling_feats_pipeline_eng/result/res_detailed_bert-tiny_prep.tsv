@@ -1,0 +1,4 @@
+word	ari	nc	sil_cosine	sil_euclidean	vc	affinity	linkage
+argument	0.01562907810810498	2	0.8476277	0.68989164	22/17/10/1	cosine	average
+interest	0.0024061284908298212	2	0.82093626	0.65342027	17/15/8/4/3/2/1	cosine	average
+paper	-0.013479427729685009	2	0.7763955	0.540233	20/12/10/4/3/1	cosine	average
