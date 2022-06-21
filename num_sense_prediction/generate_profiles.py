@@ -18,7 +18,7 @@ def morph_vectors(x, morph_profiles):
     Takes the line of processed dataframe and creates a vector of morphological features
     based on previously generated json
     """
-    substitutions = [x['Lemma']]
+    substitutions = [x['lemma']]
     morph_dict = {'Animacy': {'Anim': 0, 'Inan': 0},
                   'Case': {'Acc': 0, 'Dat': 0, 'Gen': 0, 'Ins': 0, 'Loc': 0,
                            'Nom': 0, 'Par': 0, 'Voc': 0},
@@ -128,7 +128,7 @@ def synt_vectors(x, synt_profiles):
                                    "root": 0,
                                    "vocative": 0,
                                    "xcomp": 0})
-    substitutions = [x['Lemma']]
+    substitutions = [x['lemma']]
     for word in substitutions:
         if _ma.parse(word)[0].tag.POS == 'NOUN':
             if word in synt_profiles.keys():
@@ -149,7 +149,7 @@ def synt_vectors(x, synt_profiles):
 def generate(path, name):
     print(name)
     df = pd.read_csv(path, sep='\t')
-    words = df.Lemma.tolist()
+    words = df['Lemma'].tolist()
     if not os.path.exists(f"{name}_for_profiling.txt"):
         with open(f"{name}_for_profiling.txt", 'w') as fw:
             for word in words:
