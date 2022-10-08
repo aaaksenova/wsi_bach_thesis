@@ -18,8 +18,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 nlp = stanza.Pipeline('en', processors="tokenize,pos,lemma,depparse")
-_ma = MorphAnalyzer()
-_ma_cache = {}
 
 
 def set_all_seeds(seed):
@@ -243,20 +241,6 @@ def intersect_sparse(substs_probs, substs_probs_y, nmasks=1):
                 good_substs.append((proba, subst))
         l.append(good_substs[:10])
     return l
-
-
-def ma(s):
-    """
-    Gets a string with one token, deletes spaces before and
-    after token and returns grammatical information about it. If it was met
-    before, we would get information from the special dictionary _ma_cache;
-    if it was not, information would be gotten from pymorphy2.
-    """
-    s = s.strip()  # get rid of spaces before and after token,
-    # pytmorphy2 doesn't work with them correctly
-    if s not in _ma_cache:
-        _ma_cache[s] = _ma.parse(s)
-    return _ma_cache[s]
 
 
 def get_nf_cnt(substs_probs):
