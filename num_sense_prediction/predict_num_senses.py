@@ -18,32 +18,32 @@ freq = Frequency()
 freq.load()
 wn = RuWordNet()
 
-target_fname = 'sem_cluster_unique'
-train_words_fname = 'word_contexts'
+target_fname = 'rudsi'
+train_words_fname = 'rnc_contexts_train'
 
 
 def get_num_senses_by_profiling(target_fname, train_words_fname):
-    generate(f"{train_words_fname}.tsv", "train")
-    df_train = pd.read_csv(f"profiled_train.tsv", sep='\t')  # Averaged num of senses
+    generate(f"{train_words_fname}.tsv", train_words_fname)
+    df_train = pd.read_csv(f"profiled_{train_words_fname}.tsv", sep='\t')  # Averaged num of senses
     df = pd.read_csv(f"{target_fname}.tsv", sep='\t')
     df_test = df.groupby('word').gold_sense_id.nunique().reset_index()
     df_test.rename(columns={'word': 'Lemma'}, inplace=True)
     df_test.to_csv(f"{target_fname}_unique.tsv", sep='\t', index=False)
-    generate(f"{target_fname}_unique.tsv", "test")
+    generate(f"{target_fname}_unique.tsv", target_fname)
     df_train = df_train.loc[~df_train.Lemma.isin(set(df_test.Lemma.tolist()))]
-    df_train.to_csv(f"profiled_train.tsv", sep='\t', index=False)
+    df_train.to_csv(f"profiled_{train_words_fname}.tsv", sep='\t', index=False)
     X, y = df_train.loc[:, 'Anim': 'xcomp_child'].to_numpy(), df_train.Mean.to_numpy()
     parameters = [
                     {
-                        'sgd_reg__max_iter':[100000, 1000000],
-                        'sgd_reg__tol':[1e-10, 1e-3],
-                        'sgd_reg__eta0':[0.001, 0.01]
+                        'sgd_reg__max_iter': [100000, 1000000],
+                        'sgd_reg__tol': [1e-10, 1e-3],
+                        'sgd_reg__eta0': [0.001, 0.01]
                     }
                 ]
     reg = GridSearchCV(SGDRegressor(), parameters, n_jobs=4)
     reg.fit(X=X, y=y)
     tree_model = reg.best_estimator_
-    df_test = pd.read_csv(f"profiled_test.tsv", sep='\t')
+    df_test = pd.read_csv(f"profiled_{target_fname}.tsv", sep='\t')
     df_test.drop(columns=['gold_sense_id'], inplace=True)
     df_test['num_senses'] = tree_model.predict(df_test.loc[:, 'Anim': 'xcomp_child'].to_numpy())
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
@@ -180,17 +180,17 @@ def collect_data(filename):
 
 def get_num_senses_by_variance(target_fname, train_words_fname):
     df = pd.read_csv(f"{target_fname}.tsv", sep='\t')
-    if not os.path.exists("variances_train.tsv"):
-        full_data = collect_data(f"target_fname.tsv")
+    if not os.path.exists(f"variances_{train_words_fname}.tsv"):
+        full_data = collect_data(f"{target_fname}.tsv")
         df_train = pd.DataFrame(full_data, columns=['words', 'variation', 'selfsim', 'frequency', 'num_senses'])
         df_test = collect_data(f"{train_words_fname}.tsv")
         df_test = pd.DataFrame(df_test, columns=['words', 'variation', 'selfsim', 'frequency', 'num_senses'])
         df_train = df_train.loc[~df_train.words.isin(set(df_test.words.tolist()))]
-        df_train.to_csv('variances_train.tsv', sep='\t', index=False)
-        df_test.to_csv('variances_test.tsv', sep='\t', index=False)
+        df_train.to_csv(f'variances_{train_words_fname}.tsv', sep='\t', index=False)
+        df_test.to_csv(f'variances_{target_fname}.tsv', sep='\t', index=False)
     else:
-        df_train = pd.read_csv('variances_train.tsv', sep='\t')
-        df_test = pd.read_csv('variances_test.tsv', sep='\t')
+        df_train = pd.read_csv(f'variances_{train_words_fname}.tsv', sep='\t')
+        df_test = pd.read_csv(f'variances_{target_fname}.tsv', sep='\t')
     X, y = df_train.loc[:, 'variation': 'frequency'].to_numpy(), df_train.num_senses.to_numpy()
     parameters = [
                 {
@@ -211,18 +211,18 @@ def get_num_senses_by_variance(target_fname, train_words_fname):
 
 def get_num_senses_joined_methods(target_fname, train_words_fname):
     df = pd.read_csv(f'{target_fname}.tsv', sep='\t')
-    df_train_var = pd.read_csv("variances_train.tsv", sep='\t')
-    df_test_var = pd.read_csv("variances_test.tsv", sep='\t')
-    df_train_prof = pd.read_csv("profiled_train.tsv", sep='\t')
-    df_test_prof = pd.read_csv("profiled_test.tsv", sep='\t')
+    df_train_var = pd.read_csv(f"variances_{train_words_fname}.tsv", sep='\t')
+    df_test_var = pd.read_csv(f'variances_{target_fname}.tsv', sep='\t')
+    df_train_prof = pd.read_csv(f"profiled_{train_words_fname}.tsv", sep='\t')
+    df_test_prof = pd.read_csv(f'profiled_{target_fname}.tsv', sep='\t')
     X_0, y_0 = df_train_var.loc[:, 'variation': 'frequency'].to_numpy(), df_train_var.num_senses.to_numpy()
     X_1, y_1 = df_train_prof.loc[:, 'Anim': 'nummod_child'].to_numpy(), df_train_prof.Mean.to_numpy()
     X = np.hstack((X_0, X_1))
     parameters = [
                     {
-                        'sgd_reg__max_iter':[100000, 1000000],
-                        'sgd_reg__tol':[1e-10, 1e-3],
-                        'sgd_reg__eta0':[0.001, 0.01]
+                        'sgd_reg__max_iter': [100000, 1000000],
+                        'sgd_reg__tol': [1e-10, 1e-3],
+                        'sgd_reg__eta0': [0.001, 0.01]
                     }
                 ]
     reg = GridSearchCV(SGDRegressor(), parameters, n_jobs=4)
@@ -231,7 +231,7 @@ def get_num_senses_joined_methods(target_fname, train_words_fname):
     df_test_var.rename(columns={'words': 'Lemma'}, inplace=True)
     df_test_prof.drop(columns=['gold_sense_id'], inplace=True)
     df_test = df_test_var.merge(df_test_prof, on='Lemma')
-    df_test.to_csv('test_set.csv')
+    df_test.to_csv(f'test_set_{target_fname}.csv')
     df_test['num_senses'] = best_model.predict(np.hstack((df_test.loc[:, 'variation':'frequency'].to_numpy(),
                                                           df_test.loc[:, 'Anim': 'nummod_child'].to_numpy())))
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
