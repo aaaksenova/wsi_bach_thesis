@@ -55,11 +55,10 @@ def load_models(modelname):
     """
     tokenizer = AutoTokenizer.from_pretrained(modelname)
     model = AutoModelForMaskedLM.from_pretrained(modelname).to(device)
-    roberta_flag = 'Roberta' in modelname
-    return tokenizer, model, roberta_flag
+    return tokenizer, model
 
 
-def predict_masked_sent(tokenizer, model, text, top_k, roberta_flag=False):
+def predict_masked_sent(tokenizer, model, text, top_k):
     """
     Gets text and returns top_k model predictions with probabilities
     """
