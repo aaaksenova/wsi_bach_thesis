@@ -3,14 +3,16 @@ import numpy as np
 from collections import Counter, OrderedDict
 import json
 from collect_ling_stats import parse_json
-from pymorphy2 import MorphAnalyzer
+# from pymorphy2 import MorphAnalyzer
+import stanza
 import os
 from tqdm.auto import tqdm
 
 
 tqdm.pandas()
-_ma = MorphAnalyzer()
+# _ma = MorphAnalyzer()
 _ma_cache = {}
+nlp = stanza.Pipeline('ru', processors="tokenize,pos,lemma,depparse")
 
 
 def morph_vectors(x, morph_profiles):
@@ -25,7 +27,7 @@ def morph_vectors(x, morph_profiles):
                   'Gender': {'Fem': 0, 'Masc': 0, 'Neut': 0},
                   'Number': {'Plur': 0, 'Sing': 0}}
     for word in substitutions:
-        if _ma.parse(word)[0].tag.POS == 'NOUN':
+        if nlp(word).sentences[0].words[0].upos == 'NOUN':
             if word in morph_profiles.keys():
                 for key, number in morph_profiles[word].items():
                     if key == '_':
@@ -130,7 +132,7 @@ def synt_vectors(x, synt_profiles):
                                    "xcomp": 0})
     substitutions = [x['lemma']]
     for word in substitutions:
-        if _ma.parse(word)[0].tag.POS == 'NOUN':
+        if nlp(word).sentences[0].words[0].upos == 'NOUN':
             if word in synt_profiles.keys():
                 for key, number in synt_profiles[word].items():
                     if key == '_':

@@ -7,7 +7,7 @@ from sklearn import preprocessing
 import stanza
 import numpy as np
 import random
-from pymorphy2 import MorphAnalyzer
+# from pymorphy2 import MorphAnalyzer
 from collections import Counter, OrderedDict
 import json
 from collect_ling_stats import parse_json
@@ -18,7 +18,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 nlp = stanza.Pipeline('ru', processors="tokenize,pos,lemma,depparse")
-_ma = MorphAnalyzer()
+# _ma = MorphAnalyzer()
 _ma_cache = {}
 
 
@@ -98,12 +98,22 @@ def extract_ling_feats(idxs, text, nlp):
     start_id = int(idxs.split(',')[0].split('-')[0].strip())
     end_id = int(idxs.split(',')[0].split('-')[1].strip())
     processed = nlp(text)
-    case = _ma.parse(text[start_id:end_id + 1])[0].tag.case
-    number = _ma.parse(text[start_id:end_id + 1])[0].tag.number
+    case = ''
+    number = ''
     dep = ''
     for token in processed.iter_tokens():
         if start_id == token.start_char:
             dep = token.words[0].deprel
+            try:
+                number = {i.split('=')[0]: i.split('=')[1] \
+                          for i in token.words[0].deprel.split('|')}['Number']
+            except:
+                pass
+            try:
+                case = {i.split('=')[0]: i.split('=')[1] \
+                          for i in token.words[0].deprel.split('|')}['Case']
+            except:
+                pass
             break
     return case, number, dep
 
@@ -152,7 +162,8 @@ def bert_head_vectorization(dframe, tokenizer, model):
         if start_id == token.start_char:
             target_idx = token.words[0].head
             for i in range(len(processed.sentences[0].tokens)):
-                if processed.sentences[0].dependencies[i][0].id == target_idx and processed.sentences[0].dependencies[i][2].start_char == start_id:
+                if processed.sentences[0].dependencies[i][0].id == target_idx and \
+                        processed.sentences[0].dependencies[i][2].start_char == start_id:
                     start_prep_idx = processed.sentences[0].dependencies[i][0].start_char
                     end_prep_idx = processed.sentences[0].dependencies[i][0].end_char
                     head_pos = processed.sentences[0].dependencies[i][0].upos
@@ -250,7 +261,7 @@ def ma(s):
     s = s.strip()  # get rid of spaces before and after token,
     # pytmorphy2 doesn't work with them correctly
     if s not in _ma_cache:
-        _ma_cache[s] = _ma.parse(s)
+        _ma_cache[s] = nlp(s).sentences[0].words[0].lemma
     return _ma_cache[s]
 
 
@@ -308,7 +319,7 @@ def morph_vectors(x, morph_profiles):
                   'Gender': {'Fem': 0, 'Masc': 0, 'Neut': 0},
                   'Number': {'Plur': 0, 'Sing': 0}}
     for word in substitutions:
-        if _ma.parse(word)[0].tag.POS == 'NOUN':
+        if nlp(word).sentences[0].words[0].upos == 'NOUN':
             if word in morph_profiles.keys():
                 for key, number in morph_profiles[word].items():
                     if key == '_':
@@ -414,7 +425,7 @@ def synt_vectors(x, synt_profiles):
                                    "xcomp": 0})
     substitutions = list(set(x['subst_texts'].split()))
     for word in substitutions:
-        if _ma.parse(word)[0].tag.POS == 'NOUN':
+        if nlp(word).sentences[0].words[0].lemma.upos == 'NOUN':
             if word in synt_profiles.keys():
                 for key, number in synt_profiles[word].items():
                     if key == '_':
@@ -480,7 +491,8 @@ def generate(path, modelname, top_k, methods):
             f"profiles/{modelname.split('/')[-1]}_synt.json"))
 
         df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
-            'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1,
+            'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles),
+                                                                        axis=1,
                                                                         result_type='expand')
         df[["acl",
             "advcl",
@@ -578,7 +590,8 @@ def generate(path, modelname, top_k, methods):
             tokenizer = AutoTokenizer.from_pretrained(modelname)
             model = AutoModel.from_pretrained(modelname).to(device)
             df[['head', 'head_vec', 'head_pos', 'head_deprel']] = df.progress_apply(lambda x:
-                                                                                    bert_head_vectorization(x, tokenizer,
+                                                                                    bert_head_vectorization(x,
+                                                                                                            tokenizer,
                                                                                                             model),
                                                                                     result_type='expand', axis=1)
             df['head_vec'] = df['head_vec'].apply(

@@ -103,7 +103,8 @@ def extract_ling_feats(idxs, text, nlp):
         if start_id == token.start_char:
             dep = token.words[0].deprel
             try:
-                number = {i.split('=')[0]: i.split('=')[1] for i in token.words[0].deprel.split('|')}['Number']
+                number = {i.split('=')[0]: i.split('=')[1] \
+                          for i in token.words[0].deprel.split('|')}['Number']
             except:
                 pass
             case = ''
