@@ -18,6 +18,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 nlp = stanza.Pipeline('en', processors="tokenize,pos,lemma,depparse")
+_ma_cache = {}
 
 
 def set_all_seeds(seed):
@@ -155,7 +156,8 @@ def bert_head_vectorization(dframe, tokenizer, model):
         if start_id == token.start_char:
             target_idx = token.words[0].head
             for i in range(len(processed.sentences[0].tokens)):
-                if processed.sentences[0].dependencies[i][0].id == target_idx and processed.sentences[0].dependencies[i][2].start_char == start_id:
+                if processed.sentences[0].dependencies[i][0].id == target_idx and \
+                        processed.sentences[0].dependencies[i][2].start_char == start_id:
                     start_prep_idx = processed.sentences[0].dependencies[i][0].start_char
                     end_prep_idx = processed.sentences[0].dependencies[i][0].end_char
                     head_pos = processed.sentences[0].dependencies[i][0].upos
@@ -243,10 +245,24 @@ def intersect_sparse(substs_probs, substs_probs_y, nmasks=1):
     return l
 
 
+def ma(s):
+    """
+    Gets a string with one token, deletes spaces before and
+    after token and returns grammatical information about it. If it was met
+    before, we would get information from the special dictionary _ma_cache;
+    if it was not, information would be gotten from pymorphy2.
+    """
+    s = s.strip()  # get rid of spaces before and after token,
+    # pytmorphy2 doesn't work with them correctly
+    if s not in _ma_cache:
+        _ma_cache[s] = nlp(s).sentences[0].words[0].lemma
+    return _ma_cache[s]
+
+
 def get_nf_cnt(substs_probs):
     """
     Gets substitutes and returns normal
-    forms of substitutes and count of substitutes that coresponds to
+    forms of substitutes and count of substitutes that corresponds to
     each normal form.
     """
     nf_cnt = Counter(nf for l in substs_probs \
@@ -297,7 +313,7 @@ def morph_vectors(x, morph_profiles):
                   'Gender': {'Fem': 0, 'Masc': 0, 'Neut': 0},
                   'Number': {'Plur': 0, 'Sing': 0}}
     for word in substitutions:
-        if _ma.parse(word)[0].tag.POS == 'NOUN':
+        if nlp(word).sentences[0].words[0].upos == 'NOUN':
             if word in morph_profiles.keys():
                 for key, number in morph_profiles[word].items():
                     if key == '_':
@@ -403,7 +419,7 @@ def synt_vectors(x, synt_profiles):
                                    "xcomp": 0})
     substitutions = list(set(x['subst_texts'].split()))
     for word in substitutions:
-        if _ma.parse(word)[0].tag.POS == 'NOUN':
+        if nlp(word).sentences[0].words[0].upos == 'NOUN':
             if word in synt_profiles.keys():
                 for key, number in synt_profiles[word].items():
                     if key == '_':
@@ -471,7 +487,8 @@ def generate(path, modelname, top_k, methods):
             f"profiles/{modelname.split('/')[-1]}_synt.json"))
 
         df[['Anim', 'Inan', 'Acc', 'Dat', 'Gen', 'Ins', 'Loc', 'Nom', 'Par', 'Voc',
-            'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles), axis=1,
+            'Fem', 'Masc', 'Neut', 'Plur', 'Sing']] = df.progress_apply(lambda x: morph_vectors(x, morph_profiles),
+                                                                        axis=1,
                                                                         result_type='expand')
         df[["acl",
             "advcl",
@@ -569,7 +586,8 @@ def generate(path, modelname, top_k, methods):
             tokenizer = AutoTokenizer.from_pretrained(modelname)
             model = AutoModel.from_pretrained(modelname).to(device)
             df[['head', 'head_vec', 'head_pos', 'head_deprel']] = df.progress_apply(lambda x:
-                                                                                    bert_head_vectorization(x, tokenizer,
+                                                                                    bert_head_vectorization(x,
+                                                                                                            tokenizer,
                                                                                                             model),
                                                                                     result_type='expand', axis=1)
             df['head_vec'] = df['head_vec'].apply(
