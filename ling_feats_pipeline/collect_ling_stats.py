@@ -1,8 +1,6 @@
 # python3
 # coding: utf-8
 
-import argparse
-import logging
 from smart_open import open
 import os
 import json
