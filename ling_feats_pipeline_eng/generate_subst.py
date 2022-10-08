@@ -55,11 +55,10 @@ def load_models(modelname):
     """
     tokenizer = AutoTokenizer.from_pretrained(modelname)
     model = AutoModelForMaskedLM.from_pretrained(modelname).to(device)
-    roberta_flag = 'Roberta' in modelname
-    return tokenizer, model, roberta_flag
+    return tokenizer, model
 
 
-def predict_masked_sent(tokenizer, model, text, top_k, roberta_flag=False):
+def predict_masked_sent(tokenizer, model, text, top_k):
     """
     Gets text and returns top_k model predictions with probabilities
     """
@@ -94,24 +93,29 @@ def predict_masked_sent(tokenizer, model, text, top_k, roberta_flag=False):
 
 def extract_ling_feats(idxs, text, nlp):
     """
-    Extracts cfse, number and dependency relation of the target
+    Extracts number and dependency relation of the target
     """
     start_id = int(idxs.split(',')[0].split('-')[0].strip())
     end_id = int(idxs.split(',')[0].split('-')[1].strip())
     processed = nlp(text)
-    case = _ma.parse(text[start_id:end_id + 1])[0].tag.case
-    number = _ma.parse(text[start_id:end_id + 1])[0].tag.number
+    number = ''
     dep = ''
+    case = ''
     for token in processed.iter_tokens():
         if start_id == token.start_char:
             dep = token.words[0].deprel
+            try:
+                number = {i.split('=')[0]: i.split('=')[1] for i in token.words[0].deprel.split('|')}['Number']
+            except:
+                pass
+            case = ''
             break
     return case, number, dep
 
 
 def bert_prep_vectorization(dframe, tokenizer, model):
     """
-    Extracts target word prepositions and their vectors..
+    Extracts target word prepositions and their vectors.
     """
     start_prep_idx = -1
     end_prep_idx = -1
