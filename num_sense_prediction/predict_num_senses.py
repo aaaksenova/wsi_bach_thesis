@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.linear_model import SGDRegressor
 from sklearn.model_selection import GridSearchCV
 import numpy as np
 from generate_profiles import generate
@@ -33,8 +33,14 @@ def get_num_senses_by_profiling(target_fname, train_words_fname):
     df_train = df_train.loc[~df_train.Lemma.isin(set(df_test.Lemma.tolist()))]
     df_train.to_csv(f"profiled_train.tsv", sep='\t', index=False)
     X, y = df_train.loc[:, 'Anim': 'xcomp_child'].to_numpy(), df_train.Mean.to_numpy()
-    parameters = {'max_depth': range(3, 20)}
-    reg = GridSearchCV(DecisionTreeRegressor(), parameters, n_jobs=4)
+    parameters = [
+                    {
+                        'sgd_reg__max_iter':[100000, 1000000],
+                        'sgd_reg__tol':[1e-10, 1e-3],
+                        'sgd_reg__eta0':[0.001, 0.01]
+                    }
+                ]
+    reg = GridSearchCV(SGDRegressor(), parameters, n_jobs=4)
     reg.fit(X=X, y=y)
     tree_model = reg.best_estimator_
     df_test = pd.read_csv(f"profiled_test.tsv", sep='\t')
@@ -186,11 +192,17 @@ def get_num_senses_by_variance(target_fname, train_words_fname):
         df_train = pd.read_csv('variances_train.tsv', sep='\t')
         df_test = pd.read_csv('variances_test.tsv', sep='\t')
     X, y = df_train.loc[:, 'variation': 'frequency'].to_numpy(), df_train.num_senses.to_numpy()
-    parameters = {'max_depth': range(3, 20)}
-    reg = GridSearchCV(DecisionTreeRegressor(), parameters, n_jobs=4)
+    parameters = [
+                {
+                    'sgd_reg__max_iter':[100000, 1000000],
+                    'sgd_reg__tol':[1e-10, 1e-3],
+                    'sgd_reg__eta0':[0.001, 0.01]
+                }
+            ]
+    reg = GridSearchCV(SGDRegressor(), parameters, n_jobs=4)
     reg.fit(X=X, y=y)
-    tree_model = reg.best_estimator_
-    df_test['num_senses'] = tree_model.predict(df_test.loc[:, 'variation' : 'frequency'].to_numpy())
+    best_model = reg.best_estimator_
+    df_test['num_senses'] = best_model.predict(df_test.loc[:, 'variation': 'frequency'].to_numpy())
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
     df = df.merge(df_test[['words', 'num_senses']], left_on='word', right_on='words')
     df.drop(columns=['words'], inplace=True)
@@ -206,15 +218,21 @@ def get_num_senses_joined_methods(target_fname, train_words_fname):
     X_0, y_0 = df_train_var.loc[:, 'variation': 'frequency'].to_numpy(), df_train_var.num_senses.to_numpy()
     X_1, y_1 = df_train_prof.loc[:, 'Anim': 'nummod_child'].to_numpy(), df_train_prof.Mean.to_numpy()
     X = np.hstack((X_0, X_1))
-    parameters = {'max_depth': range(3, 20)}
-    reg = GridSearchCV(DecisionTreeRegressor(), parameters, n_jobs=4)
+    parameters = [
+                    {
+                        'sgd_reg__max_iter':[100000, 1000000],
+                        'sgd_reg__tol':[1e-10, 1e-3],
+                        'sgd_reg__eta0':[0.001, 0.01]
+                    }
+                ]
+    reg = GridSearchCV(SGDRegressor(), parameters, n_jobs=4)
     reg.fit(X=X, y=y_0)
-    tree_model = reg.best_estimator_
+    best_model = reg.best_estimator_
     df_test_var.rename(columns={'words': 'Lemma'}, inplace=True)
     df_test_prof.drop(columns=['gold_sense_id'], inplace=True)
     df_test = df_test_var.merge(df_test_prof, on='Lemma')
     df_test.to_csv('test_set.csv')
-    df_test['num_senses'] = tree_model.predict(np.hstack((df_test.loc[:, 'variation':'frequency'].to_numpy(),
+    df_test['num_senses'] = best_model.predict(np.hstack((df_test.loc[:, 'variation':'frequency'].to_numpy(),
                                                           df_test.loc[:, 'Anim': 'nummod_child'].to_numpy())))
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
     df = df.merge(df_test[['Lemma', 'num_senses']], left_on='word', right_on='Lemma')
