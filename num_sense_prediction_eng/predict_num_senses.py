@@ -1,26 +1,27 @@
 import pandas as pd
-from sklearn.linear_model import SGDRegressor
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import GridSearchCV
 import numpy as np
 from generate_profiles import generate
 from tqdm.auto import tqdm
 from sklearn.neighbors import NearestCentroid
 from sklearn.metrics.pairwise import cosine_similarity
-from ruwordnet import RuWordNet
+import nltk
+from nltk.corpus import wordnet as wn
 from ruword_frequency import Frequency
 from transformers import AutoTokenizer, AutoModel, BertConfig
 import os
-
+nltk.download('omw-1.4')
+nltk.download('wordnet')
 
 config = BertConfig.from_pretrained("bert-base-cased", output_hidden_states=True)
 tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
 model = AutoModel.from_pretrained("bert-base-cased", config=config)
 freq = Frequency()
 freq.load()
-wn = RuWordNet()
 
-target_fname = 'rudsi'
-train_words_fname = 'bnc_contexts_train'
+target_fname = 'active_dict'
+train_words_fname = 'rnc_contexts_train'
 
 
 def get_num_senses_by_profiling(target_fname, train_words_fname):
@@ -28,28 +29,27 @@ def get_num_senses_by_profiling(target_fname, train_words_fname):
     df_train = pd.read_csv(f"profiled_{train_words_fname}.tsv", sep='\t')  # Averaged num of senses
     df = pd.read_csv(f"{target_fname}.tsv", sep='\t')
     df_test = df.groupby('word').gold_sense_id.nunique().reset_index()
-    df_test.rename(columns={'word': 'Lemma'}, inplace=True)
+    df_test.rename(columns={'word': 'lemma'}, inplace=True)
     df_test.to_csv(f"{target_fname}_unique.tsv", sep='\t', index=False)
     generate(f"{target_fname}_unique.tsv", target_fname)
-    df_train = df_train.loc[~df_train.Lemma.isin(set(df_test.Lemma.tolist()))]
+    df_train = df_train.loc[~df_train.lemma.isin(set(df_test.lemma.tolist()))]
     df_train.to_csv(f"profiled_{train_words_fname}.tsv", sep='\t', index=False)
     X, y = df_train.loc[:, 'Anim': 'xcomp_child'].to_numpy(), df_train.Mean.to_numpy()
     parameters = [
                     {
-                        'sgd_reg__max_iter': [100000, 1000000],
-                        'sgd_reg__tol': [1e-10, 1e-3],
-                        'sgd_reg__eta0': [0.001, 0.01]
+                        'alpha': [0.1, 0.3, 0.5, 0],
+
                     }
                 ]
-    reg = GridSearchCV(SGDRegressor(), parameters, n_jobs=4)
+    reg = GridSearchCV(Ridge(), parameters, n_jobs=4)
     reg.fit(X=X, y=y)
     tree_model = reg.best_estimator_
     df_test = pd.read_csv(f"profiled_{target_fname}.tsv", sep='\t')
     df_test.drop(columns=['gold_sense_id'], inplace=True)
     df_test['num_senses'] = tree_model.predict(df_test.loc[:, 'Anim': 'xcomp_child'].to_numpy())
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
-    df = df.merge(df_test, left_on='word', right_on='Lemma')
-    df.drop(columns=['Lemma'], inplace=True)
+    df = df.merge(df_test, left_on='word', right_on='lemma')
+    df.drop(columns=['lemma'], inplace=True)
     df.to_csv(f'num_senses_ling_{target_fname}.tsv', sep='\t', index=False)
 
 
@@ -169,10 +169,10 @@ def collect_data(filename):
     """
 
     df = pd.read_csv(filename, sep='\t')
-    df.rename(columns={'word':'lemma', 'positions':'indexes_target_token'}, inplace=True)
+    df.rename(columns={'word': 'lemma', 'positions': 'indexes_target_token'}, inplace=True)
     var_dict, selfsim_dict = variance_counter(df)
     freq_dict = {word: freq.ipm(word) for word in var_dict.keys()}
-    num_sense_dict = {word: len(wn.get_senses(word)) for word in var_dict.keys()}
+    num_sense_dict = {word: len(wn.synsets(word, pos='n')) for word in var_dict.keys()}
     data_list = []
     for word in var_dict.keys():
         data_list.append((word, var_dict[word], selfsim_dict[word], freq_dict[word], num_sense_dict[word]))
@@ -181,10 +181,10 @@ def collect_data(filename):
 
 def get_num_senses_by_variance(target_fname, train_words_fname):
     df = pd.read_csv(f"{target_fname}.tsv", sep='\t')
-    if not os.path.exists(f"variances_{train_words_fname}.tsv"):
-        full_data = collect_data(f"{target_fname}.tsv")
+    if not os.path.exists(f"variances_{target_fname}.tsv"):
+        full_data = collect_data(f"{train_words_fname}.tsv")
         df_train = pd.DataFrame(full_data, columns=['words', 'variation', 'selfsim', 'frequency', 'num_senses'])
-        df_test = collect_data(f"{train_words_fname}.tsv")
+        df_test = collect_data(f"{target_fname}.tsv")
         df_test = pd.DataFrame(df_test, columns=['words', 'variation', 'selfsim', 'frequency', 'num_senses'])
         df_train = df_train.loc[~df_train.words.isin(set(df_test.words.tolist()))]
         df_train.to_csv(f'variances_{train_words_fname}.tsv', sep='\t', index=False)
@@ -194,13 +194,12 @@ def get_num_senses_by_variance(target_fname, train_words_fname):
         df_test = pd.read_csv(f'variances_{target_fname}.tsv', sep='\t')
     X, y = df_train.loc[:, 'variation': 'frequency'].to_numpy(), df_train.num_senses.to_numpy()
     parameters = [
-                {
-                    'sgd_reg__max_iter':[100000, 1000000],
-                    'sgd_reg__tol':[1e-10, 1e-3],
-                    'sgd_reg__eta0':[0.001, 0.01]
-                }
-            ]
-    reg = GridSearchCV(SGDRegressor(), parameters, n_jobs=4)
+                    {
+                        'alpha': [0.1, 0.3, 0.5, 0],
+
+                    }
+                ]
+    reg = GridSearchCV(Ridge(), parameters, n_jobs=4)
     reg.fit(X=X, y=y)
     best_model = reg.best_estimator_
     df_test['num_senses'] = best_model.predict(df_test.loc[:, 'variation': 'frequency'].to_numpy())
@@ -216,33 +215,35 @@ def get_num_senses_joined_methods(target_fname, train_words_fname):
     df_test_var = pd.read_csv(f'variances_{target_fname}.tsv', sep='\t')
     df_train_prof = pd.read_csv(f"profiled_{train_words_fname}.tsv", sep='\t')
     df_test_prof = pd.read_csv(f'profiled_{target_fname}.tsv', sep='\t')
-    X_0, y_0 = df_train_var.loc[:, 'variation': 'frequency'].to_numpy(), df_train_var.num_senses.to_numpy()
-    X_1, y_1 = df_train_prof.loc[:, 'Anim': 'nummod_child'].to_numpy(), df_train_prof.Mean.to_numpy()
-    X = np.hstack((X_0, X_1))
+    df_train_joined = df_train_prof.merge(df_train_var.drop('num_senses', axis=1).rename(columns={'words': 'lemma'}), on='lemma')
+    print(df_train_joined.head())
+    df_test_joined = df_test_prof.merge(df_test_var.drop('num_senses', axis=1).rename(columns={'words': 'lemma'}), on='lemma')
+    print(df_test_joined.head())
+    X, y = df_train_joined.loc[:, 'Anim': 'frequency'].to_numpy(), df_train_joined.Mean.to_numpy()
+    # X_1, y_1 = df_train_prof.loc[:, 'Anim': 'nummod_child'].to_numpy(), df_train_prof.Mean.to_numpy()
+    # X = np.hstack((X_0, X_1))
     parameters = [
                     {
-                        'sgd_reg__max_iter': [100000, 1000000],
-                        'sgd_reg__tol': [1e-10, 1e-3],
-                        'sgd_reg__eta0': [0.001, 0.01]
+                        'alpha': [0.1, 0.3, 0.5, 0],
+
                     }
                 ]
-    reg = GridSearchCV(SGDRegressor(), parameters, n_jobs=4)
-    reg.fit(X=X, y=y_0)
+    reg = GridSearchCV(Ridge(), parameters, n_jobs=4)
+    reg.fit(X=X, y=y)
     best_model = reg.best_estimator_
-    df_test_var.rename(columns={'words': 'Lemma'}, inplace=True)
+    df_test_var.rename(columns={'words': 'lemma'}, inplace=True)
     df_test_prof.drop(columns=['gold_sense_id'], inplace=True)
-    df_test = df_test_var.merge(df_test_prof, on='Lemma')
+    df_test = df_test_var.merge(df_test_prof, on='lemma')
     df_test.to_csv(f'test_set_{target_fname}.csv')
-    df_test['num_senses'] = best_model.predict(np.hstack((df_test.loc[:, 'variation':'frequency'].to_numpy(),
-                                                          df_test.loc[:, 'Anim': 'nummod_child'].to_numpy())))
+    df_test['num_senses'] = best_model.predict((df_test_joined.loc[:, 'Anim':'frequency'].to_numpy()))
     df_test['num_senses'] = df_test['num_senses'].astype('int64')
-    df = df.merge(df_test[['Lemma', 'num_senses']], left_on='word', right_on='Lemma')
-    df.drop(columns=['Lemma'], inplace=True)
+    df = df.merge(df_test[['lemma', 'num_senses']], left_on='word', right_on='lemma')
+    df.drop(columns=['lemma'], inplace=True)
     df.to_csv(f'num_senses_joined_{target_fname}.tsv', sep='\t', index=False)
 
 
-get_num_senses_by_profiling()
-get_num_senses_by_variance()
-get_num_senses_joined_methods()
+get_num_senses_by_profiling(target_fname, train_words_fname)
+get_num_senses_by_variance(target_fname, train_words_fname)
+get_num_senses_joined_methods(target_fname, train_words_fname)
 
 
