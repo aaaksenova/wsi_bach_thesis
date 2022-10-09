@@ -151,7 +151,7 @@ def synt_vectors(x, synt_profiles):
 def generate(path, name):
     print(name)
     df = pd.read_csv(path, sep='\t')
-    words = df['Lemma'].tolist()
+    words = df['lemma'].unique().tolist()
     if not os.path.exists(f"{name}_for_profiling.txt"):
         with open(f"{name}_for_profiling.txt", 'w') as fw:
             for word in words:
