@@ -6,13 +6,10 @@ from generate_profiles import generate
 from tqdm.auto import tqdm
 from sklearn.neighbors import NearestCentroid
 from sklearn.metrics.pairwise import cosine_similarity
-import nltk
 from nltk.corpus import wordnet as wn
 from ruword_frequency import Frequency
 from transformers import AutoTokenizer, AutoModel, BertConfig
 import os
-nltk.download('omw-1.4')
-nltk.download('wordnet')
 
 config = BertConfig.from_pretrained("bert-base-cased", output_hidden_states=True)
 tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
@@ -20,8 +17,8 @@ model = AutoModel.from_pretrained("bert-base-cased", config=config)
 freq = Frequency()
 freq.load()
 
-target_fname = 'active_dict'
-train_words_fname = 'rnc_contexts_train'
+target_fname = 'dwug_old'
+train_words_fname = 'bnc_contexts_train'
 
 
 def get_num_senses_by_profiling(target_fname, train_words_fname):
@@ -82,8 +79,10 @@ def BERT_TOKENS(idxs, lines, model, tokenizer):
 
     embs = []
     for idx, line in tqdm(zip(idxs, lines), total=len(lines)):
-        start_id = int(idx.split(',')[0].split('-')[0].strip())
-        end_id = int(idx.split(',')[0].split('-')[1].strip())
+        start_id = int(idx.split('-')[0].strip())
+        end_id = int(idx.split('-')[1].strip())
+        # start_id = int(idx.split(',')[0].split('-')[0].strip())
+        # end_id = int(idx.split(',')[0].split('-')[1].strip())
         word = line[start_id : end_id]
         input = tokenizer.encode(line, return_tensors="pt")
         tokenized_sent = tokenizer.tokenize(line)
