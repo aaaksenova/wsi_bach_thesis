@@ -75,7 +75,7 @@ def predict_masked_sent(tokenizer, model, text, top_k):
         predictions = outputs[0]
 
     probs = torch.nn.functional.softmax(predictions[0, masked_index], dim=-1)
-    top_k_weights, top_k_indices = torch.topk(probs, 1500, sorted=True)
+    top_k_weights, top_k_indices = torch.topk(probs, 3000, sorted=True)
 
     out = []
     for i, pred_idx in enumerate(top_k_indices):
