@@ -9,7 +9,7 @@ import random
 import torch
 from generate_subst import generate
 import os
-import umap
+# import umap
 import plotly.express as px
 import warnings
 
@@ -351,47 +351,47 @@ def get_feature_mapping(df, methods):
     return features, features_vec
 
 
-def make_html_picture(df, path, methods):
-    """
-    Creates html visualization for each word in one clustering experiment.
-    """
-    features, features_vec = get_feature_mapping(df, methods)
-    df['format_context'] = df.apply(format_str, axis=1)
-    df['gold_sense_id'] = df['gold_sense_id'].astype(str)
-    df['predict_sense_id'] = df['predict_sense_id'].astype(str)
-
-    for word in df.word.unique():
-        mask = (df.word == word)
-        df1 = df[mask].copy()
-        feats_for_clustering = df1[features].to_numpy()
-        if len(features_vec) > 0:
-            for i in features_vec:
-
-                if i == 'subst_vecs':
-                    maxlen = max([len(j) for j in df1[i].tolist()])
-                    feat_vec = np.vstack([list(j) + [0]*(maxlen-len(j)) for j in df1[i].tolist()])
-
-                else:
-                    feat_vec = df1[i].to_numpy()
-                feats_for_clustering = np.hstack((feats_for_clustering, feat_vec))
-
-        reducer = umap.UMAP(metric='cosine', random_state=42)
-        mapped = reducer.fit_transform(feats_for_clustering)
-        # tsne = TSNE(n_components=2, init='pca').fit_transform(feats_for_clustering)
-
-        df1['umap_x'] = [el[0] for el in mapped]
-        df1['umap_y'] = [el[1] for el in mapped]
-
-        fig = px.scatter(df1,
-                         x="umap_x",
-                         y="umap_y",
-                         color="gold_sense_id",
-                         facet_col='word',
-                         symbol='predict_sense_id',
-                         text='format_context')
-
-        fig.update_traces(mode="markers", hovertemplate=None)
-        fig.write_html(f'{path}/{word}_visualization.html')
+# def make_html_picture(df, path, methods):
+#     """
+#     Creates html visualization for each word in one clustering experiment.
+#     """
+#     features, features_vec = get_feature_mapping(df, methods)
+#     df['format_context'] = df.apply(format_str, axis=1)
+#     df['gold_sense_id'] = df['gold_sense_id'].astype(str)
+#     df['predict_sense_id'] = df['predict_sense_id'].astype(str)
+#
+#     for word in df.word.unique():
+#         mask = (df.word == word)
+#         df1 = df[mask].copy()
+#         feats_for_clustering = df1[features].to_numpy()
+#         if len(features_vec) > 0:
+#             for i in features_vec:
+#
+#                 if i == 'subst_vecs':
+#                     maxlen = max([len(j) for j in df1[i].tolist()])
+#                     feat_vec = np.vstack([list(j) + [0]*(maxlen-len(j)) for j in df1[i].tolist()])
+#
+#                 else:
+#                     feat_vec = df1[i].to_numpy()
+#                 feats_for_clustering = np.hstack((feats_for_clustering, feat_vec))
+#
+#         reducer = umap.UMAP(metric='cosine', random_state=42)
+#         mapped = reducer.fit_transform(feats_for_clustering)
+#         # tsne = TSNE(n_components=2, init='pca').fit_transform(feats_for_clustering)
+#
+#         df1['umap_x'] = [el[0] for el in mapped]
+#         df1['umap_y'] = [el[1] for el in mapped]
+#
+#         fig = px.scatter(df1,
+#                          x="umap_x",
+#                          y="umap_y",
+#                          color="gold_sense_id",
+#                          facet_col='word',
+#                          symbol='predict_sense_id',
+#                          text='format_context')
+#
+#         fig.update_traces(mode="markers", hovertemplate=None)
+#         fig.write_html(f'{path}/{word}_visualization.html')
 
 
 def run_pipeline(path, modelname, top_k, methods, detailed_analysis=False):
@@ -451,8 +451,8 @@ def run_pipeline(path, modelname, top_k, methods, detailed_analysis=False):
         df_predicted[['word', 'context', 'positions', 'gold_sense_id', 'predict_sense_id']].to_csv(
             f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/predicted_{modelname.split("/")[-1]}_{methods}.tsv',
             sep='\t', index=False)
-        make_html_picture(df_predicted, f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/',
-                          methods=methods)
+        # make_html_picture(df_predicted, f'detailed_clustering_analysis/{modelname.split("/")[-1]}_{methods}/',
+        #                   methods=methods)
 
     else:
         if not os.path.exists('result'):

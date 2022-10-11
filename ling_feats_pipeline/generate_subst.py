@@ -261,18 +261,21 @@ def ma(s):
     s = s.strip()  # get rid of spaces before and after token,
     # pytmorphy2 doesn't work with them correctly
     if s not in _ma_cache:
-        _ma_cache[s] = nlp(s).sentences[0].words[0].lemma
+        _ma_cache[s] = nlp(s).sentences[0].words[0]
     return _ma_cache[s]
 
 
 def get_nf_cnt(substs_probs):
     """
     Gets substitutes and returns normal
-    forms of substitutes and count of substitutes that coresponds to
+    forms of substitutes and count of substitutes that corresponds to
     each normal form.
     """
-    nf_cnt = Counter(nf for l in substs_probs \
-                     for p, s in l for nf in {h.normal_form for h in ma(s)})
+    # print(substs_probs)
+    nf_cnt = [ma(s).lemma for sublist in substs_probs for p, s in sublist]
+
+    # nf_cnt = Counter(nf for l in substs_probs \
+    #                  for p, s in l for nf in {h.lemma for h in ma(s)})
     return nf_cnt
 
 
@@ -282,13 +285,14 @@ def get_normal_forms(s, nf_cnt=None):
     all lemmas or one possible lemma.
     """
     hh = ma(s)
-    if nf_cnt is not None and len(hh) > 1:  # select most common normal form
-        h_weights = [nf_cnt[h.normal_form] for h in hh]
-        max_weight = max(h_weights)
-        return {h.normal_form for i, h in enumerate(hh) \
-                if h_weights[i] == max_weight}
-    else:
-        return {h.normal_form for h in hh}
+    # if nf_cnt is not None and len(hh) > 1:  # select most common normal form
+    #     h_weights = [nf_cnt[h.lemma] for h in hh]
+    #     max_weight = max(h_weights)
+    #     return {h.lemma for i, h in enumerate(hh) \
+    #             if h_weights[i] == max_weight}
+    # else:
+    #  for h in hh}
+    return {hh.lemma}
 
 
 def preprocess_substs(r, lemmatize=True, nf_cnt=None, exclude_lemmas={}):
@@ -425,7 +429,7 @@ def synt_vectors(x, synt_profiles):
                                    "xcomp": 0})
     substitutions = list(set(x['subst_texts'].split()))
     for word in substitutions:
-        if nlp(word).sentences[0].words[0].lemma.upos == 'NOUN':
+        if nlp(word).sentences[0].words[0].upos == 'NOUN':
             if word in synt_profiles.keys():
                 for key, number in synt_profiles[word].items():
                     if key == '_':
