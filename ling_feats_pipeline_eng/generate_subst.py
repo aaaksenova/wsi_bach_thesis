@@ -36,7 +36,7 @@ def mask_before_target(idxs, line):
     Gets sentence and creates masked coordination pattern before target word
     """
     start_id = int(str(idxs).split(',')[0].split('-')[0].strip())
-    return line[:start_id] + '[MASK] а также ' + line[start_id:]
+    return line[:start_id] + '[MASK] and ' + line[start_id:]
 
 
 def mask_after_target(idxs, line):
@@ -44,7 +44,7 @@ def mask_after_target(idxs, line):
     Gets sentence and creates masked coordination pattern after target word
     """
     end_id = int(str(idxs).split(',')[0].split('-')[1].strip())
-    return line[:end_id + 1] + ' and [MASK]' + line[end_id + 1:]
+    return line[:end_id + 1] + 'and [MASK] ' + line[end_id + 1:]
 
 
 def load_models(modelname):
