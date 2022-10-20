@@ -6,12 +6,11 @@
 /ling_feats_pipeline/profiles/
 /ling_feats_pipeline/profiles_rudsi/
 /ling_feats_pipeline_eng/profiles/
-/ling_feats_pipeline_eng/profiles_sem_eval/
+/profiles_sem_eval/
 /ling_feats_pipeline/profiles_wiki_wiki/
-/ling_feats_pipeline_eng/profiles_dwug_old/
 /ling_feats_pipeline/profiles_active_dict/
 /ling_feats_pipeline/profiles_bts_rnc/
-/ling_feats_pipeline_eng/profiles_dwug_old/
-/ling_feats_pipeline_eng/profiles_dwug_new/
-/ling_feats_pipeline_eng/profiles_dwug_old/
-/ling_feats_pipeline_eng/profiles_dwug_old/
+
+/ling_feats_pipeline_eng/profiles_semeval13/
+/ling_feats_pipeline_eng/profiles_semeval20_new/
+/ling_feats_pipeline_eng/profiles_semeval20_old/
